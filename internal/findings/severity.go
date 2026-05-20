@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Andrei Taranik
+
 // Package findings defines the shared data types for cardinality
 // and other analyzer outputs.
 package findings

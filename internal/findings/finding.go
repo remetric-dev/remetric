@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Andrei Taranik
+
 package findings
 
 // Category groups findings by the kind of waste they identify.

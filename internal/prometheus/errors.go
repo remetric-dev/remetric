@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Andrei Taranik
+
 // Package prometheus is a small HTTP client for the Prometheus HTTP API.
 package prometheus
 

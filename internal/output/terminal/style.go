@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Andrei Taranik
+
 // Package terminal renders findings and doctor reports for human-readable terminal output.
 package terminal
 
