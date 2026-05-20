@@ -37,11 +37,11 @@ func (a *Analyzer) Analyze(ctx context.Context, d analyzers.Deps) ([]findings.Fi
 	for _, m := range stats.SeriesCountByMetricName {
 		labels, err := d.Prom.LabelNamesForMetric(ctx, m.Name)
 		if err != nil {
-			// TODO(phase2): collect per-metric errors and continue rather than fail-fast.
+			// TODO(phase3): collect per-metric errors and continue rather than fail-fast.
 			return nil, fmt.Errorf("cardinality: labels for %q: %w", m.Name, err)
 		}
 
-		// TODO(phase2): parallelise per-label LabelValues calls bounded by the client semaphore.
+		// TODO(phase3): parallelise per-label LabelValues calls bounded by the client semaphore.
 		topLabel, topValues, err := worstLabel(ctx, d, m.Name, labels)
 		if err != nil {
 			return nil, err

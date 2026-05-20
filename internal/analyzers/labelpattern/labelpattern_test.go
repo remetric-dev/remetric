@@ -194,3 +194,23 @@ func TestAnalyzer_SortsBySeverityThenUnique(t *testing.T) {
 		t.Errorf("sort order mismatch (-want +got):\n%s", diff)
 	}
 }
+
+func TestNewWithPatterns_Happy(t *testing.T) {
+	a, err := NewWithPatterns([]string{`^foo$`})
+	if err != nil {
+		t.Fatalf("NewWithPatterns: %v", err)
+	}
+	if a == nil {
+		t.Fatal("nil analyzer")
+	}
+	if a.Name() != "labelpattern" {
+		t.Errorf("Name = %q, want labelpattern", a.Name())
+	}
+}
+
+func TestNewWithPatterns_InvalidRegex(t *testing.T) {
+	_, err := NewWithPatterns([]string{`[unclosed`})
+	if err == nil {
+		t.Errorf("expected error for invalid regex, got nil")
+	}
+}

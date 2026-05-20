@@ -42,8 +42,8 @@ func newCardinalityTopCmd() *cobra.Command {
 			if cfg == nil || cfg.Prometheus.URL == "" {
 				return &flagError{err: errors.New("--prometheus is required")}
 			}
-			if cfg.Output != "" && cfg.Output != "terminal" && cfg.Output != "json" {
-				return &flagError{err: fmt.Errorf("invalid --output: %q (want terminal|json)", cfg.Output)}
+			if err := validateOutput(cfg.Output); err != nil {
+				return &flagError{err: err}
 			}
 			if cfg.Timeout > 0 {
 				var cancel context.CancelFunc
