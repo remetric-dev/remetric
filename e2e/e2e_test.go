@@ -35,8 +35,10 @@ func TestE2E_CardinalityTop(t *testing.T) {
 	if err != nil {
 		t.Fatalf("cardinality top failed: %v\noutput:\n%s", err, out)
 	}
-	if !strings.Contains(out, "remetric") && !strings.Contains(out, "Severity") && !strings.Contains(out, "No cardinality findings") {
-		t.Errorf("unexpected output:\n%s", out)
+	upper := strings.ToUpper(out)
+	// Either we got a populated table (header contains "SEVERITY") or the empty-state sentence.
+	if !strings.Contains(upper, "SEVERITY") && !strings.Contains(out, "No cardinality findings") {
+		t.Errorf("unexpected output (no table header, no empty sentence):\n%s", out)
 	}
 }
 
