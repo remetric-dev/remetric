@@ -12,50 +12,39 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/remetric-dev/remetric/internal/analyzers"
-	"github.com/remetric-dev/remetric/internal/analyzers/cardinality"
+	"github.com/remetric-dev/remetric/internal/analyzers/labelpattern"
 	"github.com/remetric-dev/remetric/internal/findings"
 )
 
-func newCardinalityCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "cardinality",
-		Short: "Cardinality analysis (metrics & labels).",
-	}
-	cmd.AddCommand(newCardinalityTopCmd())
-	cmd.AddCommand(newCardinalityLabelsCmd())
-	cmd.AddCommand(newCardinalitySuspiciousCmd())
-	return cmd
-}
-
-func newCardinalityTopCmd() *cobra.Command {
+func newCardinalitySuspiciousCmd() *cobra.Command {
 	var (
 		limit       int
 		minSeverity string
 	)
 	cmd := &cobra.Command{
-		Use:     "top",
-		Short:   "List the worst cardinality offenders.",
-		Example: "  remetric cardinality top --prometheus http://localhost:9090 --limit 20",
+		Use:     "suspicious",
+		Short:   "Flag labels whose names match well-known unbounded-identifier patterns.",
+		Example: "  remetric cardinality suspicious --prometheus http://localhost:9090",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
 			cfg := configFrom(ctx)
 			if cfg == nil || cfg.Prometheus.URL == "" {
 				return &flagError{err: errors.New("--prometheus is required")}
 			}
-			if cfg.Output != "" && cfg.Output != "terminal" && cfg.Output != "json" {
-				return &flagError{err: fmt.Errorf("invalid --output: %q (want terminal|json)", cfg.Output)}
+			if err := validateOutput(cfg.Output); err != nil {
+				return &flagError{err: err}
+			}
+			minSev, err := findings.ParseSeverity(minSeverity)
+			if err != nil {
+				return &flagError{err: fmt.Errorf("invalid --min-severity: %w", err)}
 			}
 			if cfg.Timeout > 0 {
 				var cancel context.CancelFunc
 				ctx, cancel = context.WithTimeout(ctx, cfg.Timeout)
 				defer cancel()
 			}
-			minSev, err := findings.ParseSeverity(minSeverity)
-			if err != nil {
-				return &flagError{err: fmt.Errorf("invalid --min-severity: %w", err)}
-			}
 
-			client, err := buildPromClient(cfg, "remetric/cardinality")
+			client, err := buildPromClient(cfg, "remetric/cardinality-suspicious")
 			if err != nil {
 				return &exitError{code: 2, err: err}
 			}
@@ -65,7 +54,7 @@ func newCardinalityTopCmd() *cobra.Command {
 				Logger: loggerFrom(ctx),
 				Limits: analyzers.DefaultLimits(),
 			}
-			a := cardinality.New()
+			a := labelpattern.New()
 			all, err := a.Analyze(ctx, d)
 			if err != nil {
 				return &exitError{code: 1, err: err}
@@ -77,12 +66,11 @@ func newCardinalityTopCmd() *cobra.Command {
 					filtered = append(filtered, f)
 				}
 			}
-
 			sort.SliceStable(filtered, func(i, j int) bool {
 				if filtered[i].Severity != filtered[j].Severity {
 					return filtered[i].Severity > filtered[j].Severity
 				}
-				return filtered[i].Evidence.SeriesCount > filtered[j].Evidence.SeriesCount
+				return filtered[i].Evidence.UniqueValues > filtered[j].Evidence.UniqueValues
 			})
 			if limit >= 0 && len(filtered) > limit {
 				filtered = filtered[:limit]
