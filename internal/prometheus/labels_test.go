@@ -9,18 +9,29 @@ import (
 	"testing"
 
 	prom "github.com/remetric-dev/remetric/internal/prometheus"
-	"github.com/remetric-dev/remetric/internal/prometheus/promtest"
 )
 
 func TestClient_LabelNamesForMetric(t *testing.T) {
-	srv := promtest.NewServer(t, "testdata", promtest.Routes{
-		"/api/v1/labels": "labels_istio.json",
+	var rawQuery string
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/labels", func(w http.ResponseWriter, r *http.Request) {
+		rawQuery = r.URL.RawQuery
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"status":"success","data":["__name__","destination_principal","destination_service","source_principal","response_code"]}`))
 	})
-	c, _ := prom.New(srv.URL)
+	ts := newTestServer(t, mux)
+	c, _ := prom.New(ts.URL)
+
 	got, err := c.LabelNamesForMetric(context.Background(), "istio_requests_total")
 	if err != nil {
 		t.Fatalf("err = %v", err)
 	}
+
+	v, _ := url.ParseQuery(rawQuery)
+	if !strings.Contains(v.Get("match[]"), `__name__="istio_requests_total"`) {
+		t.Errorf("match[] = %q, missing __name__ matcher", v.Get("match[]"))
+	}
+
 	for _, want := range []string{"destination_principal", "response_code"} {
 		found := false
 		for _, n := range got {
@@ -61,6 +72,29 @@ func TestClient_LabelValues_AppendsMatchQuery(t *testing.T) {
 	v, _ := url.ParseQuery(rawQuery)
 	if !strings.Contains(v.Get("match[]"), `__name__="istio_requests_total"`) {
 		t.Errorf("match[] = %q, missing __name__ matcher", v.Get("match[]"))
+	}
+}
+
+func TestClient_LabelValues_NoMatchers(t *testing.T) {
+	var requestPath string
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/label/job/values", func(w http.ResponseWriter, r *http.Request) {
+		requestPath = r.URL.RequestURI()
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"status":"success","data":["prometheus","node"]}`))
+	})
+	ts := newTestServer(t, mux)
+	c, _ := prom.New(ts.URL)
+
+	got, err := c.LabelValues(context.Background(), "job")
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if len(got) != 2 {
+		t.Errorf("len = %d, want 2", len(got))
+	}
+	if requestPath != "/api/v1/label/job/values" {
+		t.Errorf("request path = %q, want bare /api/v1/label/job/values without query string", requestPath)
 	}
 }
 
