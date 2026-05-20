@@ -8,10 +8,10 @@ LOCAL_PREFIX     := github.com/remetric-dev/remetric
 VERSION          ?= $(shell git describe --tags --dirty --always 2>/dev/null || echo dev)
 LDFLAGS          := -s -w -X main.version=$(VERSION)
 
-.PHONY: help build test test-race fmt vet lint vuln tidy clean e2e-up e2e-down e2e
+.PHONY: help build test test-race fmt vet lint vuln clean e2e-up e2e-down e2e
 
 help: ## Show this help
-	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z_-]+:.*## / {printf "  %-14s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*## / {printf "  %-14s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 build: ## Build static binary into ./bin/remetric
 	CGO_ENABLED=0 $(GO) build -trimpath -ldflags "$(LDFLAGS)" -o bin/remetric ./cmd/remetric
@@ -21,9 +21,6 @@ test: ## Run unit tests
 
 test-race: ## Run unit tests with -race
 	$(GO) test -race ./...
-
-tidy: ## go mod tidy
-	$(GO) mod tidy
 
 clean: ## Remove build outputs
 	rm -rf bin coverage.out
