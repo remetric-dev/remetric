@@ -1,0 +1,31 @@
+┌──────────┬──────────────────────────────┬───────────────────────┬─────────┬────────┬────────────────┐
+│ SEVERITY │ METRIC                       │ LABEL                 │ SERIES  │ UNIQUE │ EST. REDUCTION │
+├──────────┼──────────────────────────────┼───────────────────────┼─────────┼────────┼────────────────┤
+│ CRITICAL │ istio_requests_total         │ destination_principal │ 487,234 │ 5,234  │ ~487,141       │
+│ HIGH     │ etcd_request_duration_secon… │ grpc_method           │ 124,540 │ 148    │ ~123,699       │
+│ MEDIUM   │ node_filesystem_size_bytes   │ device                │ 31,200  │ 52     │ ~30,600        │
+└──────────┴──────────────────────────────┴───────────────────────┴─────────┴────────┴────────────────┘
+
+[CRITICAL] istio_requests_total  ·  destination_principal has 5234 unique values
+Sample: spiffe://orders, spiffe://payments
+Estimated reduction (upper bound): 487,141 series
+
+Suggested fix (Prometheus scrape config):
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: "istio_requests_total"
+        action: keep
+      - regex: "destination_principal"
+        action: labeldrop
+
+[HIGH] etcd_request_duration_seconds_bucket  ·  grpc_method has 148 unique values
+Sample: foo, bar
+Estimated reduction (upper bound): 123,699 series
+
+Suggested fix (Prometheus scrape config):
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: "etcd_request_duration_seconds_bucket"
+        action: keep
+      - regex: "grpc_method"
+        action: labeldrop
