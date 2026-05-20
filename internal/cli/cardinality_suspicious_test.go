@@ -99,3 +99,95 @@ func TestCardinalitySuspicious_JSON(t *testing.T) {
 		t.Errorf("findings length = %d, want 1:\n%s", len(fs), out)
 	}
 }
+
+func TestCardinalitySuspicious_NoResults(t *testing.T) {
+	// Fixture: TSDB returns labels but none match suspicious patterns.
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case strings.HasPrefix(r.URL.Path, "/api/v1/status/tsdb"):
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"status": "success",
+				"data": map[string]any{
+					"headStats":               map[string]any{"numSeries": 1_000_000},
+					"seriesCountByMetricName": []map[string]any{},
+					"labelValueCountByLabelName": []map[string]any{
+						{"name": "status", "value": 5},
+						{"name": "code", "value": 8},
+					},
+				},
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer ts.Close()
+
+	var out bytes.Buffer
+	code := ExecuteWith(Args{
+		Version: "test",
+		Args:    []string{"cardinality", "suspicious", "--prometheus", ts.URL, "--min-severity", "low"},
+		Stdout:  &out,
+		Stderr:  &out,
+	})
+	if code != 0 {
+		t.Fatalf("non-zero exit: %d\n%s", code, out.String())
+	}
+	body := out.String()
+	if !strings.Contains(body, "No suspicious labels") {
+		t.Errorf("expected NoResults copy, got:\n%s", body)
+	}
+	if !strings.Contains(body, "remetric doctor") {
+		t.Errorf("expected doctor hint, got:\n%s", body)
+	}
+}
+
+func TestCardinalitySuspicious_AllFiltered_ShowsHint(t *testing.T) {
+	// Fixture: user_id label with 50 unique values → Low severity.
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case strings.HasPrefix(r.URL.Path, "/api/v1/status/tsdb"):
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"status": "success",
+				"data": map[string]any{
+					"headStats":               map[string]any{"numSeries": 1_000_000},
+					"seriesCountByMetricName": []map[string]any{{"name": "m", "value": 100}},
+					"labelValueCountByLabelName": []map[string]any{
+						{"name": "user_id", "value": 50},
+					},
+				},
+			})
+		case r.URL.Path == "/api/v1/label/__name__/values":
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"status": "success",
+				"data":   []string{"m"},
+			})
+		case r.URL.Path == "/api/v1/label/user_id/values":
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"status": "success",
+				"data":   []string{"u1", "u2"},
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer ts.Close()
+
+	var out bytes.Buffer
+	code := ExecuteWith(Args{
+		Version: "test",
+		Args:    []string{"cardinality", "suspicious", "--prometheus", ts.URL, "--min-severity", "medium"},
+		Stdout:  &out,
+		Stderr:  &out,
+	})
+	if code != 0 {
+		t.Fatalf("non-zero exit: %d\n%s", code, out.String())
+	}
+	body := out.String()
+	for _, want := range []string{"Filtered 1", "suspicious labels", "1 low", "--min-severity low"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("expected %q in output:\n%s", want, body)
+		}
+	}
+}
