@@ -40,38 +40,24 @@ type Summary struct {
 
 // NewReport builds a Report with computed Summary. ScannedAt is set
 // to time.Now().UTC(). Target and Overview are left nil and will be
-// populated by the caller (Phase 3+).
+// populated by the caller (Phase 3+). Findings is copied; the caller
+// may safely mutate the input slice afterwards.
 func NewReport(version string, fs []Finding) *Report {
 	bySev := map[string]int{}
 	var totalRed int64
 	for _, f := range fs {
-		key := lowerSeverity(f.Severity)
+		key := f.Severity.lower()
 		bySev[key]++
 		totalRed += f.Impact.SeriesReduction
 	}
+	copied := append([]Finding(nil), fs...)
 	return &Report{
 		Version:   version,
 		ScannedAt: time.Now().UTC(),
-		Findings:  fs,
+		Findings:  copied,
 		Summary: Summary{
 			BySeverity:               bySev,
 			PotentialSeriesReduction: totalRed,
 		},
-	}
-}
-
-// lowerSeverity returns the canonical lower-case JSON key for s.
-func lowerSeverity(s Severity) string {
-	switch s {
-	case SeverityLow:
-		return "low"
-	case SeverityMedium:
-		return "medium"
-	case SeverityHigh:
-		return "high"
-	case SeverityCritical:
-		return "critical"
-	default:
-		return "unknown"
 	}
 }

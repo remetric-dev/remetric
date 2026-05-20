@@ -76,3 +76,55 @@ func TestReport_JSONShape(t *testing.T) {
 		}
 	}
 }
+
+func TestReport_PopulatedTargetOverview(t *testing.T) {
+	r := &Report{
+		Version:   "0.2.0",
+		ScannedAt: time.Date(2026, 5, 20, 10, 23, 45, 0, time.UTC),
+		Target: &Target{
+			PrometheusURL:     "http://prometheus.example.com:9090",
+			PrometheusVersion: "2.51.2",
+		},
+		Overview: &Overview{
+			TotalSeries:          2_341_892,
+			TotalMetrics:         4_127,
+			EstimatedMemoryBytes: 13_314_752_512,
+		},
+		Findings: []Finding{},
+		Summary:  Summary{BySeverity: map[string]int{}, PotentialSeriesReduction: 0},
+	}
+	b, err := json.Marshal(r)
+	if err != nil {
+		t.Fatalf("Marshal: %v", err)
+	}
+	var got map[string]any
+	if err := json.Unmarshal(b, &got); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+	target, ok := got["target"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected target object, got: %v", got["target"])
+	}
+	if target["prometheus_url"] != "http://prometheus.example.com:9090" {
+		t.Errorf("prometheus_url = %v, want http://prometheus.example.com:9090", target["prometheus_url"])
+	}
+	overview, ok := got["overview"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected overview object, got: %v", got["overview"])
+	}
+	if overview["total_series"] != float64(2_341_892) {
+		t.Errorf("total_series = %v, want 2341892", overview["total_series"])
+	}
+}
+
+func TestNewReport_DoesNotAliasInput(t *testing.T) {
+	fs := []Finding{
+		{ID: "a", Severity: SeverityCritical, Impact: Impact{SeriesReduction: 100}},
+	}
+	r := NewReport("0.2.0", fs)
+	// Mutate caller's slice — Report.Findings must NOT be affected.
+	fs[0].ID = "mutated"
+	if r.Findings[0].ID != "a" {
+		t.Errorf("Report.Findings aliased caller's slice: got ID=%q, want %q", r.Findings[0].ID, "a")
+	}
+}
