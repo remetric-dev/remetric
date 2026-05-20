@@ -1,0 +1,12 @@
+{
+  "prometheus_url": "http://prom:9090",
+  "reachable": true,
+  "version": "2.51.2",
+  "version_ok": true,
+  "auth_method": "none",
+  "tsdb_stats_accessible": true,
+  "num_series": 1234567,
+  "num_metrics": 4127,
+  "storage_retention": "15d",
+  "elapsed_ms": 27
+}
