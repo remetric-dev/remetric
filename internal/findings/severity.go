@@ -10,6 +10,7 @@ import (
 // Severity is the impact ranking attached to a Finding.
 type Severity int
 
+// Severity levels, ordered from least to most impactful.
 const (
 	SeverityLow Severity = iota
 	SeverityMedium
