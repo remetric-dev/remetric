@@ -1,0 +1,18 @@
+{
+  "version": "0.2.0",
+  "scanned_at": "2026-05-20T10:23:45Z",
+  "target": {
+    "prometheus_url": "http://prometheus.example.com:9090",
+    "prometheus_version": "2.51.2"
+  },
+  "overview": {
+    "total_series": 2341892,
+    "total_metrics": 4127,
+    "estimated_memory_bytes": 13314752512
+  },
+  "findings": [],
+  "summary": {
+    "by_severity": {},
+    "potential_series_reduction": 0
+  }
+}
