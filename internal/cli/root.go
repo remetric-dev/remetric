@@ -109,11 +109,7 @@ func newRootCmd(version string) *cobra.Command {
 	return cmd
 }
 
-// Stubs replaced by Tasks 8.2 (doctor) and 8.3 (cardinality).
-func newDoctorCmd() *cobra.Command {
-	return &cobra.Command{Use: "doctor", Short: "Check connectivity", RunE: func(_ *cobra.Command, _ []string) error { return nil }}
-}
-
+// Stub replaced by Task 8.3 (cardinality).
 func newCardinalityCmd() *cobra.Command {
 	cardinality := &cobra.Command{Use: "cardinality", Short: "Cardinality analysis"}
 	cardinality.AddCommand(&cobra.Command{Use: "top", Short: "Top cardinality offenders", RunE: func(_ *cobra.Command, _ []string) error { return nil }})

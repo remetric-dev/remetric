@@ -1,0 +1,138 @@
+package cli
+
+import (
+	"errors"
+	"fmt"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/spf13/cobra"
+
+	"github.com/remetric-dev/remetric/internal/config"
+	"github.com/remetric-dev/remetric/internal/output/terminal"
+	prom "github.com/remetric-dev/remetric/internal/prometheus"
+)
+
+const minPrometheusVersion = "2.30.0"
+
+func newDoctorCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:     "doctor",
+		Short:   "Check Prometheus connectivity, version, and permissions.",
+		RunE:    runDoctor,
+		Example: "  remetric doctor --prometheus http://localhost:9090",
+	}
+}
+
+func runDoctor(cmd *cobra.Command, _ []string) error {
+	ctx := cmd.Context()
+	cfg := configFrom(ctx)
+	if cfg == nil || cfg.Prometheus.URL == "" {
+		return &flagError{err: errors.New("--prometheus is required")}
+	}
+
+	start := time.Now()
+	client, err := buildPromClient(cfg, "remetric/doctor")
+	if err != nil {
+		return &exitError{code: 2, err: err}
+	}
+
+	rep := terminal.DoctorReport{
+		PrometheusURL: cfg.Prometheus.URL,
+		AuthMethod:    authMethodFor(cfg),
+	}
+
+	if err := client.Ping(ctx); err != nil {
+		rep.Errors = append(rep.Errors, terminal.DoctorError{Check: "reachability", Err: err})
+	} else {
+		rep.Reachable = true
+	}
+
+	if bi, err := client.BuildInfo(ctx); err != nil {
+		rep.Errors = append(rep.Errors, terminal.DoctorError{Check: "buildinfo", Err: err})
+	} else {
+		rep.Version = bi.Version
+		rep.VersionOK = compareVersions(bi.Version, minPrometheusVersion) >= 0
+		if !rep.VersionOK {
+			rep.Errors = append(rep.Errors, terminal.DoctorError{
+				Check: "version",
+				Err:   fmt.Errorf("prometheus %s is below minimum %s", bi.Version, minPrometheusVersion),
+			})
+		}
+	}
+
+	if stats, err := client.TSDBStats(ctx, 1); err != nil {
+		rep.Errors = append(rep.Errors, terminal.DoctorError{Check: "tsdb_stats", Err: err})
+	} else {
+		rep.TSDBStatsOK = true
+		rep.NumSeries = stats.HeadStats.NumSeries
+	}
+	rep.Elapsed = time.Since(start)
+
+	r := terminal.New(cmd.OutOrStdout(), terminal.WithColor(!cfg.NoColor))
+	if rerr := r.RenderDoctor(rep); rerr != nil {
+		return rerr
+	}
+	if len(rep.Errors) > 0 {
+		return &exitError{code: 1, err: errors.New("doctor checks failed")}
+	}
+	return nil
+}
+
+func authMethodFor(cfg *config.Config) string {
+	switch {
+	case cfg.Prometheus.Token != "":
+		return "bearer"
+	case cfg.Prometheus.BasicAuth != "":
+		return "basic"
+	default:
+		return "none"
+	}
+}
+
+func buildPromClient(cfg *config.Config, ua string) (*prom.Client, error) {
+	opts := []prom.Option{prom.WithUserAgent(ua), prom.WithMaxInFlight(cfg.Prometheus.MaxInFlight)}
+	if cfg.Prometheus.Token != "" {
+		opts = append(opts, prom.WithBearerToken(cfg.Prometheus.Token))
+	}
+	if cfg.Prometheus.BasicAuth != "" {
+		parts := strings.SplitN(cfg.Prometheus.BasicAuth, ":", 2)
+		if len(parts) != 2 {
+			return nil, errors.New("--prom-basic-auth must be user:password")
+		}
+		opts = append(opts, prom.WithBasicAuth(parts[0], parts[1]))
+	}
+	if cfg.Prometheus.TLSSkipVerify {
+		opts = append(opts, prom.WithTLSSkipVerify(true))
+	}
+	if cfg.Timeout > 0 {
+		opts = append(opts, prom.WithTimeout(cfg.Timeout))
+	}
+	return prom.New(cfg.Prometheus.URL, opts...)
+}
+
+// compareVersions compares dotted semver-ish strings ignoring pre-release.
+// Returns -1, 0, +1.
+func compareVersions(a, b string) int {
+	pa := versionParts(a)
+	pb := versionParts(b)
+	for i := 0; i < 3; i++ {
+		if pa[i] < pb[i] {
+			return -1
+		}
+		if pa[i] > pb[i] {
+			return +1
+		}
+	}
+	return 0
+}
+
+func versionParts(s string) [3]int {
+	var out [3]int
+	parts := strings.Split(strings.SplitN(s, "-", 2)[0], ".")
+	for i := 0; i < 3 && i < len(parts); i++ {
+		out[i], _ = strconv.Atoi(parts[i])
+	}
+	return out
+}
