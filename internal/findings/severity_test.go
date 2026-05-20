@@ -4,6 +4,7 @@
 package findings
 
 import (
+	"encoding/json"
 	"sort"
 	"testing"
 )
@@ -59,5 +60,55 @@ func TestParseSeverity(t *testing.T) {
 		if !tt.wantErr && got != tt.want {
 			t.Errorf("ParseSeverity(%q) = %v, want %v", tt.in, got, tt.want)
 		}
+	}
+}
+
+func TestSeverity_MarshalJSON(t *testing.T) {
+	cases := []struct {
+		in   Severity
+		want string
+	}{
+		{SeverityLow, `"low"`},
+		{SeverityMedium, `"medium"`},
+		{SeverityHigh, `"high"`},
+		{SeverityCritical, `"critical"`},
+	}
+	for _, c := range cases {
+		got, err := json.Marshal(c.in)
+		if err != nil {
+			t.Fatalf("Marshal(%v) error: %v", c.in, err)
+		}
+		if string(got) != c.want {
+			t.Errorf("Marshal(%v) = %s, want %s", c.in, got, c.want)
+		}
+	}
+}
+
+func TestSeverity_UnmarshalJSON(t *testing.T) {
+	cases := []struct {
+		in   string
+		want Severity
+	}{
+		{`"low"`, SeverityLow},
+		{`"medium"`, SeverityMedium},
+		{`"HIGH"`, SeverityHigh},
+		{`"Critical"`, SeverityCritical},
+	}
+	for _, c := range cases {
+		var got Severity
+		if err := json.Unmarshal([]byte(c.in), &got); err != nil {
+			t.Fatalf("Unmarshal(%s) error: %v", c.in, err)
+		}
+		if got != c.want {
+			t.Errorf("Unmarshal(%s) = %v, want %v", c.in, got, c.want)
+		}
+	}
+}
+
+func TestSeverity_UnmarshalJSON_Invalid(t *testing.T) {
+	var s Severity
+	err := json.Unmarshal([]byte(`"nope"`), &s)
+	if err == nil {
+		t.Fatalf("Unmarshal(\"nope\") = nil error, want error")
 	}
 }

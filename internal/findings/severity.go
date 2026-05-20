@@ -51,3 +51,22 @@ func ParseSeverity(s string) (Severity, error) {
 	}
 	return 0, fmt.Errorf("unknown severity %q", s)
 }
+
+// MarshalJSON encodes the severity as a lower-case string,
+// matching the JSON schema in the spec (§5.5).
+func (s Severity) MarshalJSON() ([]byte, error) {
+	return []byte(`"` + strings.ToLower(s.String()) + `"`), nil
+}
+
+// UnmarshalJSON accepts a case-insensitive severity name.
+func (s *Severity) UnmarshalJSON(b []byte) error {
+	if len(b) < 2 || b[0] != '"' || b[len(b)-1] != '"' {
+		return fmt.Errorf("severity: expected JSON string, got %s", b)
+	}
+	sev, err := ParseSeverity(string(b[1 : len(b)-1]))
+	if err != nil {
+		return err
+	}
+	*s = sev
+	return nil
+}
