@@ -49,3 +49,26 @@ func LabelPatternSeverity(uniqueValues int) findings.Severity {
 		return findings.SeverityLow
 	}
 }
+
+// UnusedMetricSeverity grades an unused metric by its head series
+// count. Thresholds are lower than CardinalitySeverity because the
+// false-positive risk is higher — a metric only used in an ad-hoc
+// query would be flagged "unused" here, and we don't want to scream
+// "Critical" at it.
+//
+//	seriesCount > 100_000 → Critical
+//	seriesCount > 25_000  → High
+//	seriesCount > 5_000   → Medium
+//	otherwise             → Low
+func UnusedMetricSeverity(seriesCount int64) findings.Severity {
+	switch {
+	case seriesCount > 100_000:
+		return findings.SeverityCritical
+	case seriesCount > 25_000:
+		return findings.SeverityHigh
+	case seriesCount > 5_000:
+		return findings.SeverityMedium
+	default:
+		return findings.SeverityLow
+	}
+}
