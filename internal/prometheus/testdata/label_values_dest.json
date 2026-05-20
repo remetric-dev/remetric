@@ -1,0 +1,1 @@
+{"status":"success","data":["spiffe://cluster.local/ns/default/sa/orders","spiffe://cluster.local/ns/default/sa/payments","spiffe://cluster.local/ns/default/sa/web"]}
