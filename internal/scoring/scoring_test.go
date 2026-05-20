@@ -39,3 +39,31 @@ func TestCardinalitySeverity(t *testing.T) {
 		})
 	}
 }
+
+func TestLabelPatternSeverity(t *testing.T) {
+	cases := []struct {
+		name string
+		uniq int
+		want findings.Severity
+	}{
+		{"critical_high_uniq", 10_000, findings.SeverityCritical},
+		{"critical_boundary", 5001, findings.SeverityCritical},
+		{"high", 2_500, findings.SeverityHigh},
+		{"high_boundary", 1001, findings.SeverityHigh},
+		{"medium", 500, findings.SeverityMedium},
+		{"medium_boundary", 101, findings.SeverityMedium},
+		{"low", 10, findings.SeverityLow},
+		{"low_zero", 0, findings.SeverityLow},
+		{"critical_at_5000", 5000, findings.SeverityHigh}, // strict >
+		{"high_at_1000", 1000, findings.SeverityMedium},
+		{"medium_at_100", 100, findings.SeverityLow},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := LabelPatternSeverity(c.uniq)
+			if got != c.want {
+				t.Errorf("LabelPatternSeverity(%d) = %v, want %v", c.uniq, got, c.want)
+			}
+		})
+	}
+}
