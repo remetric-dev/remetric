@@ -7,6 +7,13 @@ type auth interface {
 	apply(*http.Request)
 }
 
+// Compile-time checks that all auth implementations satisfy the interface.
+var (
+	_ auth = noAuth{}
+	_ auth = bearerAuth{}
+	_ auth = basicAuth{}
+)
+
 type noAuth struct{}
 
 func (noAuth) apply(*http.Request) {}
