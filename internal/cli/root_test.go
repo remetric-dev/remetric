@@ -58,3 +58,22 @@ func TestRoot_UnknownCommand(t *testing.T) {
 		t.Errorf("exit = %d, want 2", code)
 	}
 }
+
+func TestRoot_Help_MentionsAuthAndEnv(t *testing.T) {
+	var out bytes.Buffer
+	code := cli.ExecuteWith(cli.Args{
+		Version: "test",
+		Args:    []string{"--help"},
+		Stdout:  &out,
+		Stderr:  &out,
+	})
+	if code != 0 {
+		t.Fatalf("non-zero exit: %d\n%s", code, out.String())
+	}
+	body := out.String()
+	for _, want := range []string{"REMETRIC_", "--prom-token", "--prom-basic-auth"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("root --help missing %q, got:\n%s", want, body)
+		}
+	}
+}
