@@ -105,3 +105,49 @@ func TestLoad_NoColorEnv(t *testing.T) {
 		t.Errorf("NoColor = false, want true (NO_COLOR set)")
 	}
 }
+
+func TestConfig_DefaultOutput(t *testing.T) {
+	fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
+	config.BindFlags(fs)
+	if err := fs.Parse(nil); err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	cfg, err := config.Load(fs, "")
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.Output != "terminal" {
+		t.Errorf("Output = %q, want %q", cfg.Output, "terminal")
+	}
+}
+
+func TestConfig_OutputFlagOverride(t *testing.T) {
+	fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
+	config.BindFlags(fs)
+	if err := fs.Parse([]string{"--output", "json"}); err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	cfg, err := config.Load(fs, "")
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.Output != "json" {
+		t.Errorf("Output = %q, want %q", cfg.Output, "json")
+	}
+}
+
+func TestConfig_OutputEnvOverride(t *testing.T) {
+	t.Setenv("REMETRIC_OUTPUT", "json")
+	fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
+	config.BindFlags(fs)
+	if err := fs.Parse(nil); err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	cfg, err := config.Load(fs, "")
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.Output != "json" {
+		t.Errorf("Output = %q, want %q", cfg.Output, "json")
+	}
+}
