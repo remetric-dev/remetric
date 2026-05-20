@@ -15,17 +15,17 @@ import (
 // (added by Task 2.2); this file declares the struct so Option closures
 // have something to populate.
 type Client struct {
-	baseURL *url.URL              //nolint:unused // populated by Task 2.2 (client.go: New)
-	hc      *retryablehttp.Client //nolint:unused // populated by Task 2.2 (client.go: New)
+	baseURL *url.URL
+	hc      *retryablehttp.Client
 
 	auth          auth
 	tlsSkipVerify bool
 	timeout       time.Duration
 	maxInFlight   int
 	userAgent     string
-	logger        *slog.Logger //nolint:unused // populated by Task 2.2 (client.go: New)
+	logger        *slog.Logger
 
-	sem chan struct{} //nolint:unused // populated by Task 2.2 (client.go: New)
+	sem chan struct{}
 }
 
 // Option configures a Client during construction.
