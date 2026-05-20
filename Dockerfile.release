@@ -1,0 +1,7 @@
+FROM gcr.io/distroless/static:nonroot
+LABEL org.opencontainers.image.title="remetric"
+LABEL org.opencontainers.image.source="https://github.com/remetric-dev/remetric"
+LABEL org.opencontainers.image.licenses="Apache-2.0"
+COPY remetric /remetric
+USER 65532:65532
+ENTRYPOINT ["/remetric"]
