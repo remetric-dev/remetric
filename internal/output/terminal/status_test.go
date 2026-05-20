@@ -5,16 +5,16 @@ package terminal
 
 import (
 	"bytes"
-	"errors"
 	"strings"
 	"testing"
-	"time"
+
+	"github.com/remetric-dev/remetric/internal/findings"
 )
 
 func TestRenderDoctor_Healthy(t *testing.T) {
 	var buf bytes.Buffer
 	r := New(&buf, WithColor(false), WithWidth(100))
-	rep := DoctorReport{
+	rep := findings.DoctorReport{
 		PrometheusURL: "http://localhost:9090",
 		Reachable:     true,
 		Version:       "2.51.2",
@@ -22,7 +22,7 @@ func TestRenderDoctor_Healthy(t *testing.T) {
 		AuthMethod:    "none",
 		TSDBStatsOK:   true,
 		NumSeries:     2341892,
-		Elapsed:       412 * time.Millisecond,
+		ElapsedMs:     412,
 	}
 	if err := r.RenderDoctor(rep); err != nil {
 		t.Fatalf("err = %v", err)
@@ -33,15 +33,15 @@ func TestRenderDoctor_Healthy(t *testing.T) {
 func TestRenderDoctor_OldVersion(t *testing.T) {
 	var buf bytes.Buffer
 	r := New(&buf, WithColor(false), WithWidth(100))
-	rep := DoctorReport{
+	rep := findings.DoctorReport{
 		PrometheusURL: "http://localhost:9090",
 		Reachable:     true,
 		Version:       "2.29.1",
 		VersionOK:     false,
 		AuthMethod:    "bearer",
 		TSDBStatsOK:   false,
-		Errors:        []DoctorError{{Check: "version", Err: errors.New("prometheus 2.29.1 is below minimum 2.30.0")}},
-		Elapsed:       300 * time.Millisecond,
+		Errors:        []findings.DoctorError{{Check: "version", Error: "prometheus 2.29.1 is below minimum 2.30.0"}},
+		ElapsedMs:     300,
 	}
 	if err := r.RenderDoctor(rep); err != nil {
 		t.Fatalf("err = %v", err)
@@ -50,7 +50,7 @@ func TestRenderDoctor_OldVersion(t *testing.T) {
 }
 
 func TestRenderDoctor_IncludesMetricsAndRetention(t *testing.T) {
-	rep := DoctorReport{
+	rep := findings.DoctorReport{
 		PrometheusURL:    "http://prom:9090",
 		Reachable:        true,
 		Version:          "2.51.2",
@@ -60,7 +60,7 @@ func TestRenderDoctor_IncludesMetricsAndRetention(t *testing.T) {
 		NumSeries:        1_234_567,
 		NumMetrics:       4_127,
 		StorageRetention: "15d",
-		Elapsed:          time.Second,
+		ElapsedMs:        1000,
 	}
 	var buf bytes.Buffer
 	r := New(&buf, WithColor(false))
@@ -80,7 +80,7 @@ func TestRenderDoctor_IncludesMetricsAndRetention(t *testing.T) {
 }
 
 func TestRenderDoctor_OmitsZeroExtras(t *testing.T) {
-	rep := DoctorReport{
+	rep := findings.DoctorReport{
 		PrometheusURL: "http://prom:9090",
 		Reachable:     true,
 		TSDBStatsOK:   true,
