@@ -44,6 +44,8 @@ func TestParseSeverity(t *testing.T) {
 		{"medium", SeverityMedium, false},
 		{"HIGH", SeverityHigh, false},
 		{"critical", SeverityCritical, false},
+		{" High ", SeverityHigh, false},
+		{"", 0, true},
 		{"bogus", 0, true},
 	}
 	for _, tt := range tests {
