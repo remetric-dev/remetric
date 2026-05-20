@@ -26,3 +26,14 @@ func renderFindings(cfg *config.Config, w io.Writer, fs []findings.Finding) erro
 		return fmt.Errorf("unsupported --output %q (want terminal|json)", cfg.Output)
 	}
 }
+
+// validateOutput returns an error if s is not a supported output format.
+// Accepted: "", "terminal", "json".
+func validateOutput(s string) error {
+	switch s {
+	case "", "terminal", "json":
+		return nil
+	default:
+		return fmt.Errorf("invalid --output: %q (want terminal|json)", s)
+	}
+}

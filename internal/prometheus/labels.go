@@ -24,7 +24,7 @@ func (c *Client) LabelNamesForMetric(ctx context.Context, metric string) ([]stri
 	if err := json.Unmarshal(body, &env); err != nil {
 		return nil, fmt.Errorf("remetric: parse labels: %w", err)
 	}
-	out := env.Data[:0]
+	out := make([]string, 0, len(env.Data))
 	for _, name := range env.Data {
 		if name == "__name__" {
 			continue

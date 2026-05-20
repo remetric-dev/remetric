@@ -104,15 +104,6 @@ func renderInventory(cfg *config.Config, w io.Writer, inv outjson.LabelInventory
 	}
 }
 
-func validateOutput(s string) error {
-	switch s {
-	case "", "terminal", "json":
-		return nil
-	default:
-		return fmt.Errorf("invalid --output: %q (want terminal|json)", s)
-	}
-}
-
 func firstN(xs []string, n int) []string {
 	if n <= 0 || len(xs) == 0 {
 		return nil
