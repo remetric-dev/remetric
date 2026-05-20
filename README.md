@@ -24,11 +24,31 @@ specific version via `REMETRIC_VERSION=v0.1.0 sh install.sh`.
 
 ### Docker
 
-```bash
-docker run --rm ghcr.io/remetric-dev/remetric:latest doctor --prometheus http://prometheus:9090
-```
-
 Multi-arch image (`linux/amd64`, `linux/arm64`).
+
+Pick the invocation that matches where Prometheus is running:
+
+```bash
+# Prometheus on the host (Linux) — share the host network
+docker run --rm --net=host \
+  ghcr.io/remetric-dev/remetric:latest \
+  doctor --prometheus http://127.0.0.1:9090
+
+# Prometheus on the host (macOS / Windows Docker Desktop) — use the magic DNS name
+docker run --rm \
+  ghcr.io/remetric-dev/remetric:latest \
+  doctor --prometheus http://host.docker.internal:9090
+
+# Prometheus reachable on the public internet or a corporate URL
+docker run --rm \
+  ghcr.io/remetric-dev/remetric:latest \
+  doctor --prometheus https://prom.example.com
+
+# Prometheus in the same docker network (compose / k8s) — use the service name
+docker run --rm --network my-prom-net \
+  ghcr.io/remetric-dev/remetric:latest \
+  doctor --prometheus http://prometheus:9090
+```
 
 ### Manual download
 
