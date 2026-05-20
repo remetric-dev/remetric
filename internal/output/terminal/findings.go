@@ -18,8 +18,9 @@ import (
 // RenderFindings writes a sorted table plus fix blocks for critical/high.
 func (r *Renderer) RenderFindings(fs []findings.Finding) error {
 	if len(fs) == 0 {
-		_, err := fmt.Fprintln(r.w, "No cardinality findings above min-severity. Run `remetric doctor` to verify the connection.")
-		return err
+		// Empty input is a defensive no-op; the CLI owns the user-facing
+		// empty-state message (analyzer-aware) — see internal/cli/empty.go.
+		return nil
 	}
 
 	sorted := make([]findings.Finding, len(fs))
