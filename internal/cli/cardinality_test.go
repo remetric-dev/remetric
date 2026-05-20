@@ -101,3 +101,45 @@ func TestCardinalityTop_MinSeverityFilters(t *testing.T) {
 		t.Errorf("expected no HIGH rows with --min-severity critical:\n%s", out.String())
 	}
 }
+
+func TestCardinalityTop_JSONOutput(t *testing.T) {
+	srv := newCardinalityStub(t)
+	var out bytes.Buffer
+	code := cli.ExecuteWith(cli.Args{
+		Version: "test",
+		Args: []string{
+			"cardinality", "top",
+			"--prometheus", srv.URL,
+			"--output", "json",
+			"--min-severity", "low",
+		},
+		Stdout: &out,
+		Stderr: &out,
+	})
+	if code != 0 {
+		t.Fatalf("exit = %d, want 0; out:\n%s", code, out.String())
+	}
+	if !strings.Contains(out.String(), `"findings"`) {
+		t.Errorf("expected JSON findings envelope, got:\n%s", out.String())
+	}
+}
+
+func TestCardinalityTop_InvalidOutput(t *testing.T) {
+	var out bytes.Buffer
+	code := cli.ExecuteWith(cli.Args{
+		Version: "test",
+		Args: []string{
+			"cardinality", "top",
+			"--prometheus", "http://example.invalid",
+			"--output", "yaml",
+		},
+		Stdout: &out,
+		Stderr: &out,
+	})
+	if code == 0 {
+		t.Fatalf("expected non-zero exit for --output yaml, got 0; out:\n%s", out.String())
+	}
+	if !strings.Contains(out.String(), "yaml") {
+		t.Errorf("error doesn't mention bad value:\n%s", out.String())
+	}
+}

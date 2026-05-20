@@ -108,3 +108,35 @@ func TestRenderFindings_FixBlockOnlyForCritHigh(t *testing.T) {
 		t.Errorf("medium row should NOT have a fix block")
 	}
 }
+
+func TestRenderFindings_LabelPatternFixBlock(t *testing.T) {
+	f := findings.Finding{
+		ID:       "label-user_id",
+		Severity: findings.SeverityHigh,
+		Category: findings.CategoryLabelPatterns,
+		Title:    "suspicious label user_id",
+		// Metric intentionally empty.
+		Evidence: findings.Evidence{
+			Label:        "user_id",
+			UniqueValues: 5000,
+			SampleValues: []string{"u-1", "u-2"},
+			SeriesCount:  100_000,
+			Description:  "user_id has 5000 unique values across 3 metrics",
+		},
+		Fix: findings.Fix{
+			Type:   "drop_label",
+			Config: "metric_relabel_configs:\n  - regex: 'user_id'\n    action: labeldrop\n",
+		},
+		Impact: findings.Impact{SeriesReduction: 80_000, Percentage: 80, EstimationMethod: "labeldrop_upper_bound"},
+	}
+
+	var buf bytes.Buffer
+	r := New(&buf, WithColor(false))
+	if err := r.RenderFindings([]findings.Finding{f}); err != nil {
+		t.Fatalf("RenderFindings: %v", err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "label 'user_id' has 5,000 unique values") {
+		t.Errorf("expected label-style heading, got:\n%s", out)
+	}
+}

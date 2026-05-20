@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Andrei Taranik
 
+// Package cardinality identifies high-cardinality metrics and attributes them
+// to the label that drives the explosion.
 package cardinality
 
 import (
@@ -10,6 +12,7 @@ import (
 
 	"github.com/remetric-dev/remetric/internal/analyzers"
 	"github.com/remetric-dev/remetric/internal/findings"
+	"github.com/remetric-dev/remetric/internal/scoring"
 )
 
 // Analyzer identifies high-cardinality metrics and attributes them
@@ -34,11 +37,11 @@ func (a *Analyzer) Analyze(ctx context.Context, d analyzers.Deps) ([]findings.Fi
 	for _, m := range stats.SeriesCountByMetricName {
 		labels, err := d.Prom.LabelNamesForMetric(ctx, m.Name)
 		if err != nil {
-			// TODO(phase2): collect per-metric errors and continue rather than fail-fast.
+			// TODO(phase3): collect per-metric errors and continue rather than fail-fast.
 			return nil, fmt.Errorf("cardinality: labels for %q: %w", m.Name, err)
 		}
 
-		// TODO(phase2): parallelise per-label LabelValues calls bounded by the client semaphore.
+		// TODO(phase3): parallelise per-label LabelValues calls bounded by the client semaphore.
 		topLabel, topValues, err := worstLabel(ctx, d, m.Name, labels)
 		if err != nil {
 			return nil, err
@@ -47,7 +50,7 @@ func (a *Analyzer) Analyze(ctx context.Context, d analyzers.Deps) ([]findings.Fi
 			continue
 		}
 
-		sev := severity(m.Value, head)
+		sev := scoring.CardinalitySeverity(m.Value, head)
 		if sev == findings.SeverityLow {
 			continue
 		}

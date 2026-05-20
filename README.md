@@ -6,9 +6,9 @@ Re-metric your stack — find waste in Prometheus, Grafana & Loki.
 Prometheus server and it prints a ranked, actionable list of cardinality
 problems with suggested `metric_relabel_configs` fixes.
 
-> Status: **alpha (Phase 1 of v0.1)** — only the cardinality analyzer is wired
-> up. Grafana integration, alert hygiene, unused-metric detection, and HTML/JSON
-> reports come in later phases.
+> Status: **alpha (Phase 2 of v0.1)** — cardinality analyzer + label-pattern
+> analyzer + JSON output are wired up. Grafana integration, alert hygiene,
+> unused-metric detection, and HTML/Markdown reports come in later phases.
 
 ## 60-second quickstart
 
@@ -27,12 +27,36 @@ sleep 10
 make e2e-down
 ```
 
+## Label-pattern analysis (Phase 2)
+
+Find labels whose names look like unbounded identifiers (`user_id`, `trace_id`,
+`path`, …) and rank them by uniqueness:
+
+```bash
+remetric cardinality suspicious \
+  --prometheus http://localhost:9090 \
+  --min-severity medium
+```
+
+Inspect the labels of a single metric, sorted by unique value count:
+
+```bash
+remetric cardinality labels \
+  --metric http_requests_total \
+  --prometheus http://localhost:9090
+```
+
+Both commands accept `--output json` for machine-readable output (schema in
+`.claude/spec.md` §5.5).
+
 ## Commands
 
-| Command                     | What it does                                                |
-|-----------------------------|-------------------------------------------------------------|
-| `remetric doctor`           | Connectivity + version + permission self-check              |
-| `remetric cardinality top`  | List the worst-offending high-cardinality metric/label pairs|
+| Command                            | What it does                                                |
+|------------------------------------|-------------------------------------------------------------|
+| `remetric doctor`                  | Connectivity + version + permission self-check              |
+| `remetric cardinality top`         | List the worst-offending high-cardinality metric/label pairs|
+| `remetric cardinality labels`      | Per-metric label inventory (unique counts + sample values)  |
+| `remetric cardinality suspicious`  | Flag labels matching unbounded-identifier patterns          |
 
 Global flags (subset; see `--help` for the full list):
 
@@ -40,12 +64,13 @@ Global flags (subset; see `--help` for the full list):
 - `--prom-token TOK` — Bearer token. Env: `REMETRIC_PROMETHEUS_TOKEN`.
 - `--prom-basic-auth USER:PASS` — Basic auth.
 - `--prom-max-in-flight N` — Concurrency cap (default 5).
+- `--output FORMAT` — `terminal` (default) or `json`.
 - `--no-color` — Disable colored output (`NO_COLOR` env also respected).
 - `--verbose` — Debug-level slog logging on stderr.
 
-## What does Phase 1 *not* do yet?
+## What does Phase 2 *not* do yet?
 
-- No JSON / HTML / Markdown output.
+- No HTML / Markdown output.
 - No Grafana integration; we can't tell you which metrics are unused.
 - No `--fail-on` flag for CI integration.
 - No goreleaser / Docker image / Homebrew tap.

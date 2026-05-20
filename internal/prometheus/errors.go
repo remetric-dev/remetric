@@ -16,6 +16,9 @@ var (
 	ErrPrometheusVersion = errors.New("prometheus version too old")
 	ErrConflictingAuth   = errors.New("conflicting auth options")
 	ErrInvalidURL        = errors.New("invalid URL")
+	// ErrInvalidArgument is returned when a public method receives a
+	// missing or malformed argument (e.g. empty label name).
+	ErrInvalidArgument = errors.New("invalid argument")
 )
 
 // Error captures the HTTP details of a failed Prometheus call.

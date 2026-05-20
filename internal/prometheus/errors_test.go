@@ -5,6 +5,7 @@ package prometheus
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -42,5 +43,12 @@ func TestError_Is_NoSentinel(t *testing.T) {
 	e := &Error{StatusCode: 500, Status: "500", Method: "GET", URL: "http://x"}
 	if errors.Is(e, ErrAuth) {
 		t.Errorf("errors.Is(*Error{nil sentinel}, ErrAuth) = true, want false")
+	}
+}
+
+func TestErrInvalidArgument_IsSentinel(t *testing.T) {
+	err := fmt.Errorf("remetric: %w: foo", ErrInvalidArgument)
+	if !errors.Is(err, ErrInvalidArgument) {
+		t.Errorf("errors.Is(%v, ErrInvalidArgument) = false, want true", err)
 	}
 }
