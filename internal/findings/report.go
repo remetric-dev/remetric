@@ -1,0 +1,77 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Andrei Taranik
+
+package findings
+
+import "time"
+
+// Report is the top-level JSON output of a scan or focused subcommand.
+// Phase 2 populates Version, ScannedAt, Findings, and Summary.
+// Target and Overview are pointer-optional: nil means "not populated"
+// and the key is omitted from JSON. Phase 3 callers will set them via
+// &Target{...} / &Overview{...} once real scan metadata is available.
+type Report struct {
+	Version   string    `json:"version"`
+	ScannedAt time.Time `json:"scanned_at"`
+	Target    *Target   `json:"target,omitempty"`
+	Overview  *Overview `json:"overview,omitempty"`
+	Findings  []Finding `json:"findings"`
+	Summary   Summary   `json:"summary"`
+}
+
+// Target identifies the scanned stack.
+type Target struct {
+	PrometheusURL     string `json:"prometheus_url,omitempty"`
+	PrometheusVersion string `json:"prometheus_version,omitempty"`
+}
+
+// Overview is the stack-level snapshot at scan time.
+type Overview struct {
+	TotalSeries          int64 `json:"total_series,omitempty"`
+	TotalMetrics         int64 `json:"total_metrics,omitempty"`
+	EstimatedMemoryBytes int64 `json:"estimated_memory_bytes,omitempty"`
+}
+
+// Summary is the aggregated severity/impact view over Findings.
+type Summary struct {
+	BySeverity               map[string]int `json:"by_severity"`
+	PotentialSeriesReduction int64          `json:"potential_series_reduction"`
+}
+
+// NewReport builds a Report with computed Summary. ScannedAt is set
+// to time.Now().UTC(). Target and Overview are left nil and will be
+// populated by the caller (Phase 3+).
+func NewReport(version string, fs []Finding) *Report {
+	bySev := map[string]int{}
+	var totalRed int64
+	for _, f := range fs {
+		key := lowerSeverity(f.Severity)
+		bySev[key]++
+		totalRed += f.Impact.SeriesReduction
+	}
+	return &Report{
+		Version:   version,
+		ScannedAt: time.Now().UTC(),
+		Findings:  fs,
+		Summary: Summary{
+			BySeverity:               bySev,
+			PotentialSeriesReduction: totalRed,
+		},
+	}
+}
+
+// lowerSeverity returns the canonical lower-case JSON key for s.
+func lowerSeverity(s Severity) string {
+	switch s {
+	case SeverityLow:
+		return "low"
+	case SeverityMedium:
+		return "medium"
+	case SeverityHigh:
+		return "high"
+	case SeverityCritical:
+		return "critical"
+	default:
+		return "unknown"
+	}
+}
