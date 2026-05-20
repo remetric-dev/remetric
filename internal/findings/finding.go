@@ -3,6 +3,7 @@ package findings
 // Category groups findings by the kind of waste they identify.
 type Category string
 
+// Known finding categories.
 const (
 	CategoryCardinality     Category = "cardinality"
 	CategoryUnusedMetrics   Category = "unused_metrics"
