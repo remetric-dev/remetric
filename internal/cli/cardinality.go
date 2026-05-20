@@ -14,7 +14,6 @@ import (
 	"github.com/remetric-dev/remetric/internal/analyzers"
 	"github.com/remetric-dev/remetric/internal/analyzers/cardinality"
 	"github.com/remetric-dev/remetric/internal/findings"
-	"github.com/remetric-dev/remetric/internal/output/terminal"
 )
 
 func newCardinalityCmd() *cobra.Command {
@@ -40,6 +39,9 @@ func newCardinalityTopCmd() *cobra.Command {
 			cfg := configFrom(ctx)
 			if cfg == nil || cfg.Prometheus.URL == "" {
 				return &flagError{err: errors.New("--prometheus is required")}
+			}
+			if cfg.Output != "" && cfg.Output != "terminal" && cfg.Output != "json" {
+				return &flagError{err: fmt.Errorf("invalid --output: %q (want terminal|json)", cfg.Output)}
 			}
 			if cfg.Timeout > 0 {
 				var cancel context.CancelFunc
@@ -84,8 +86,7 @@ func newCardinalityTopCmd() *cobra.Command {
 				filtered = filtered[:limit]
 			}
 
-			r := terminal.New(cmd.OutOrStdout(), terminal.WithColor(!cfg.NoColor))
-			return r.RenderFindings(filtered)
+			return renderFindings(cfg, cmd.OutOrStdout(), filtered)
 		},
 	}
 	cmd.Flags().IntVar(&limit, "limit", 20, "Maximum findings to print (0 = none)")
