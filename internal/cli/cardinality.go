@@ -22,6 +22,7 @@ func newCardinalityCmd() *cobra.Command {
 		Short: "Cardinality analysis (metrics & labels).",
 	}
 	cmd.AddCommand(newCardinalityTopCmd())
+	cmd.AddCommand(newCardinalityLabelsCmd())
 	return cmd
 }
 
