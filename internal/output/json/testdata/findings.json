@@ -1,0 +1,35 @@
+{
+  "findings": [
+    {
+      "id": "label-user_id",
+      "severity": "high",
+      "category": "label_patterns",
+      "title": "suspicious label \"user_id\" with 5000 unique values across 1 metrics",
+      "evidence": {
+        "label": "user_id",
+        "unique_values": 5000,
+        "sample_values": [
+          "u-1",
+          "u-2"
+        ],
+        "series_count": 800000,
+        "description": "user_id has 5000 unique values across 1 metrics"
+      },
+      "fix": {
+        "type": "drop_label",
+        "config": "metric_relabel_configs:\n  - regex: 'user_id'\n    action: labeldrop\n"
+      },
+      "impact": {
+        "series_reduction": 799840,
+        "percentage": 99.98,
+        "estimation_method": "labeldrop_upper_bound"
+      }
+    }
+  ],
+  "summary": {
+    "by_severity": {
+      "high": 1
+    },
+    "potential_series_reduction": 799840
+  }
+}

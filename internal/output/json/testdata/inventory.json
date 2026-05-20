@@ -1,0 +1,16 @@
+{
+  "metric": "http_requests_total",
+  "labels": [
+    {
+      "name": "user_id",
+      "unique_values": 5000,
+      "sample_values": [
+        "u-1"
+      ]
+    },
+    {
+      "name": "status",
+      "unique_values": 5
+    }
+  ]
+}
