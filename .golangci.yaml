@@ -1,0 +1,52 @@
+# .golangci.yaml — pinned: golangci-lint v2.12.1
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  default: none
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - unused
+    - ineffassign
+    - revive
+    - gocritic
+    - gosec
+    - unconvert
+    - misspell
+    - gocyclo
+  settings:
+    gocyclo:
+      min-complexity: 15
+    revive:
+      severity: warning
+      rules:
+        - name: var-naming
+        - name: package-comments
+        - name: exported
+  exclusions:
+    rules:
+      - path: _test\.go
+        linters:
+          - gosec
+          - gocyclo
+          - errcheck
+      - path: cmd/
+        linters:
+          - revive
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/remetric-dev/remetric
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
