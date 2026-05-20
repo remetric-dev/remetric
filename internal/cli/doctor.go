@@ -22,10 +22,25 @@ const minPrometheusVersion = "2.30.0"
 
 func newDoctorCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:     "doctor",
-		Short:   "Check Prometheus connectivity, version, and permissions.",
-		RunE:    runDoctor,
-		Example: "  remetric doctor --prometheus http://localhost:9090",
+		Use:   "doctor",
+		Short: "Check Prometheus connectivity, version, and permissions.",
+		Long: `Verifies that the configured Prometheus is reachable, advertises a
+supported version (2.30+), exposes the TSDB stats endpoint, and shows
+the head series count, total metric names, and configured retention.
+
+doctor is a read-only diagnostic; it never modifies the target.`,
+		Example: `  # Default checks (no auth)
+  remetric doctor --prometheus http://localhost:9090
+
+  # Bearer token
+  remetric doctor --prometheus https://prom.example.com --prom-token $TOKEN
+
+  # Basic auth
+  remetric doctor --prometheus https://prom.example.com --prom-basic-auth user:pass
+
+  # Skip self-signed TLS check (use with care)
+  remetric doctor --prometheus https://prom.example.com --prom-tls-skip-verify`,
+		RunE: runDoctor,
 	}
 }
 
