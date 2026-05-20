@@ -1,0 +1,18 @@
+# Build outputs
+bin/
+dist/
+
+# VCS + dev tooling
+.git/
+.github/
+.claude/
+docs/superpowers/
+
+# IDE / OS noise
+.idea/
+.vscode/
+.DS_Store
+
+# Test scaffolding not needed in image build
+e2e/docker-compose.yml
+*.local.yaml
