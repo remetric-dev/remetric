@@ -21,7 +21,7 @@ func NewServer(t *testing.T, fixturesDir string, routes Routes) *httptest.Server
 	mux := http.NewServeMux()
 	for path, fixture := range routes {
 		fpath := filepath.Join(fixturesDir, fixture)
-		body, err := os.ReadFile(fpath)
+		body, err := os.ReadFile(fpath) //nolint:gosec // test-only helper; fixturesDir is supplied by the test author
 		if err != nil {
 			t.Fatalf("promtest: read fixture %q: %v", fpath, err)
 		}
