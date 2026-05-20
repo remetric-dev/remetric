@@ -71,6 +71,60 @@ func TestE2E_CardinalityLabels_JSON(t *testing.T) {
 	}
 }
 
+func TestE2E_UnusedMetrics_Terminal(t *testing.T) {
+	out, err := runCmd(t, binPath(t),
+		"unused", "metrics",
+		"--prometheus", "http://localhost:9090",
+		"--grafana", "http://localhost:3000",
+		"--no-color",
+		"--min-severity", "low",
+	)
+	if err != nil {
+		t.Fatalf("unused metrics failed: %v\n%s", err, out)
+	}
+	upper := strings.ToUpper(out)
+	if !strings.Contains(upper, "SEVERITY") && !strings.Contains(out, "No unused metrics") {
+		t.Errorf("unexpected output (no table header, no empty sentence):\n%s", out)
+	}
+}
+
+func TestE2E_UnusedMetrics_JSON(t *testing.T) {
+	out, err := runCmd(t, binPath(t),
+		"unused", "metrics",
+		"--prometheus", "http://localhost:9090",
+		"--grafana", "http://localhost:3000",
+		"--output", "json",
+		"--min-severity", "low",
+	)
+	if err != nil {
+		t.Fatalf("unused metrics --output json failed: %v\n%s", err, out)
+	}
+	if !strings.HasPrefix(strings.TrimSpace(out), "{") {
+		t.Errorf("expected JSON document, got:\n%s", out)
+	}
+	if !strings.Contains(out, `"findings"`) {
+		t.Errorf("expected findings key, got:\n%s", out)
+	}
+}
+
+func TestE2E_Scan_Report(t *testing.T) {
+	out, err := runCmd(t, binPath(t),
+		"scan",
+		"--prometheus", "http://localhost:9090",
+		"--grafana", "http://localhost:3000",
+		"--output", "json",
+		"--min-severity", "low",
+	)
+	if err != nil {
+		t.Fatalf("scan failed: %v\n%s", err, out)
+	}
+	for _, want := range []string{`"findings"`, `"target"`, `"summary"`} {
+		if !strings.Contains(out, want) {
+			t.Errorf("scan JSON missing %q:\n%s", want, out)
+		}
+	}
+}
+
 func runCmd(t *testing.T, name string, args ...string) (string, error) {
 	t.Helper()
 	var buf bytes.Buffer
