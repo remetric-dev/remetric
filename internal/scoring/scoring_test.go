@@ -26,6 +26,9 @@ func TestCardinalitySeverity(t *testing.T) {
 		{"boundary_100k", 100_000, 10_000_000, findings.SeverityMedium},
 		{"boundary_25k", 25_000, 10_000_000, findings.SeverityLow},
 		{"zero_total", 1_000, 0, findings.SeverityLow},
+		{"negative_total", 1_000, -1, findings.SeverityLow},
+		{"pct_exactly_15", 150_000, 1_000_000, findings.SeverityHigh}, // strict > 15 means 15.0 → not Critical
+		{"pct_exactly_5", 50_000, 1_000_000, findings.SeverityMedium}, // strict > 5 means 5.0 → not High
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
