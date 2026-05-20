@@ -1,0 +1,18 @@
+# e2e/docker-compose.yml
+services:
+  prometheus:
+    image: prom/prometheus:v2.51.2
+    container_name: remetric-e2e-prom
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=1h
+      - --web.listen-address=:9090
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+  node-exporter:
+    image: prom/node-exporter:v1.8.0
+    container_name: remetric-e2e-node
+    ports:
+      - "9100:9100"
