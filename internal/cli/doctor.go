@@ -22,10 +22,25 @@ const minPrometheusVersion = "2.30.0"
 
 func newDoctorCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:     "doctor",
-		Short:   "Check Prometheus connectivity, version, and permissions.",
-		RunE:    runDoctor,
-		Example: "  remetric doctor --prometheus http://localhost:9090",
+		Use:   "doctor",
+		Short: "Check Prometheus connectivity, version, and permissions.",
+		Long: `Verifies that the configured Prometheus is reachable, advertises a
+supported version (2.30+), exposes the TSDB stats endpoint, and shows
+the head series count, total metric names, and configured retention.
+
+doctor is a read-only diagnostic; it never modifies the target.`,
+		Example: `  # Default checks (no auth)
+  remetric doctor --prometheus http://localhost:9090
+
+  # Bearer token
+  remetric doctor --prometheus https://prom.example.com --prom-token $TOKEN
+
+  # Basic auth
+  remetric doctor --prometheus https://prom.example.com --prom-basic-auth user:pass
+
+  # Skip self-signed TLS check (use with care)
+  remetric doctor --prometheus https://prom.example.com --prom-tls-skip-verify`,
+		RunE: runDoctor,
 	}
 }
 
@@ -78,6 +93,16 @@ func runDoctor(cmd *cobra.Command, _ []string) error {
 		rep.TSDBStatsOK = true
 		rep.NumSeries = stats.HeadStats.NumSeries
 	}
+
+	// Best-effort enrichments: failures are silently ignored so the report
+	// simply omits these fields. The [OK] markers above remain authoritative.
+	if rt, err := client.RuntimeInfo(ctx); err == nil {
+		rep.StorageRetention = rt.StorageRetention
+	}
+	if names, err := client.LabelValues(ctx, "__name__"); err == nil {
+		rep.NumMetrics = int64(len(names))
+	}
+
 	rep.Elapsed = time.Since(start)
 
 	r := terminal.New(cmd.OutOrStdout(), terminal.WithColor(!cfg.NoColor))
