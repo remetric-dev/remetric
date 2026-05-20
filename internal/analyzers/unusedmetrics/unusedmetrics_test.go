@@ -210,3 +210,42 @@ func TestAnalyzer_RecordingRuleOutputUsed(t *testing.T) {
 		t.Errorf("expected no unused metrics, got %v", gotNames)
 	}
 }
+
+func TestAnalyzer_PrometheusError(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer ts.Close()
+	pc, _ := prometheus.New(ts.URL)
+	_, err := New().Analyze(context.Background(), analyzers.Deps{
+		Prom: pc, Logger: slog.Default(), Limits: analyzers.DefaultLimits(),
+	})
+	if err == nil {
+		t.Error("expected error from prom 500, got nil")
+	}
+}
+
+func TestAnalyzer_GrafanaError(t *testing.T) {
+	prom := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api/v1/label/__name__/values":
+			_ = json.NewEncoder(w).Encode(map[string]any{"status": "success", "data": []string{"a"}})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer prom.Close()
+	graf := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer graf.Close()
+	pc, _ := prometheus.New(prom.URL)
+	gc, _ := grafana.New(graf.URL)
+	_, err := New().Analyze(context.Background(), analyzers.Deps{
+		Prom: pc, Graf: gc, Logger: slog.Default(), Limits: analyzers.DefaultLimits(),
+	})
+	if err == nil {
+		t.Error("expected error from grafana 500, got nil")
+	}
+}
