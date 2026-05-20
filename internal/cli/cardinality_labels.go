@@ -24,9 +24,22 @@ func newCardinalityLabelsCmd() *cobra.Command {
 		sampleSize int
 	)
 	cmd := &cobra.Command{
-		Use:     "labels",
-		Short:   "Show labels for a metric sorted by unique value count.",
-		Example: "  remetric cardinality labels --metric http_requests_total",
+		Use:   "labels",
+		Short: "Show labels for a metric sorted by unique value count.",
+		Long: `Drill-down view of a single metric: every label, the number of unique
+values it takes, and a short sample of those values. Useful when
+cardinality top has flagged a metric and you want to confirm the
+attribution before applying a labeldrop.
+
+Output is sorted by unique-value count, descending.`,
+		Example: `  # Inspect a specific metric
+  remetric cardinality labels --metric http_requests_total --prometheus http://localhost:9090
+
+  # JSON output
+  remetric cardinality labels --metric istio_requests_total --prometheus http://localhost:9090 --output json
+
+  # Larger value samples
+  remetric cardinality labels --metric some_metric --prometheus http://localhost:9090 --sample-size 20`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
 			cfg := configFrom(ctx)

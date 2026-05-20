@@ -85,13 +85,15 @@ func TestRenderFindings_AllSeverities(t *testing.T) {
 	goldenAssert(t, "findings_all_severities.golden", buf.String())
 }
 
-func TestRenderFindings_Empty(t *testing.T) {
+func TestRenderFindings_EmptyIsNoOp(t *testing.T) {
 	var buf bytes.Buffer
 	r := New(&buf, WithColor(false), WithWidth(100))
 	if err := r.RenderFindings(nil); err != nil {
-		t.Fatalf("err = %v", err)
+		t.Fatalf("RenderFindings: %v", err)
 	}
-	goldenAssert(t, "findings_empty.golden", buf.String())
+	if buf.Len() != 0 {
+		t.Errorf("empty input should write nothing, got:\n%q", buf.String())
+	}
 }
 
 func TestRenderFindings_FixBlockOnlyForCritHigh(t *testing.T) {

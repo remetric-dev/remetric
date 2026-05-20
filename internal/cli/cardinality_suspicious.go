@@ -22,9 +22,25 @@ func newCardinalitySuspiciousCmd() *cobra.Command {
 		minSeverity string
 	)
 	cmd := &cobra.Command{
-		Use:     "suspicious",
-		Short:   "Flag labels whose names match well-known unbounded-identifier patterns.",
-		Example: "  remetric cardinality suspicious --prometheus http://localhost:9090",
+		Use:   "suspicious",
+		Short: "Flag labels whose names match well-known unbounded-identifier patterns.",
+		Long: `Scans the TSDB top-N labels for names that look like unbounded
+identifiers — UUIDs, request paths, trace/span ids, email-like values,
+session tokens, and anything ending in _id.
+
+Severity scales with the number of unique values:
+  Critical: >5,000   High: >1,000   Medium: >100   Low: otherwise
+
+Operational labels (cluster, namespace, job, instance, region,
+environment) are explicitly ignored even when high-cardinality.`,
+		Example: `  # Default scan
+  remetric cardinality suspicious --prometheus http://localhost:9090
+
+  # Include low-severity matches
+  remetric cardinality suspicious --prometheus http://localhost:9090 --min-severity low
+
+  # JSON output for CI
+  remetric cardinality suspicious --prometheus http://localhost:9090 --output json`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
 			cfg := configFrom(ctx)
@@ -60,12 +76,11 @@ func newCardinalitySuspiciousCmd() *cobra.Command {
 				return &exitError{code: 1, err: err}
 			}
 
-			filtered := make([]findings.Finding, 0, len(all))
-			for _, f := range all {
-				if f.Severity >= minSev {
-					filtered = append(filtered, f)
-				}
+			filtered := filterAtLeast(all, minSev)
+			if len(filtered) == 0 {
+				return renderEmpty(cfg, cmd.OutOrStdout(), labelPatternCopy, minSev, len(all), tallyBySeverity(all))
 			}
+
 			sort.SliceStable(filtered, func(i, j int) bool {
 				if filtered[i].Severity != filtered[j].Severity {
 					return filtered[i].Severity > filtered[j].Severity
@@ -74,6 +89,11 @@ func newCardinalitySuspiciousCmd() *cobra.Command {
 			})
 			if limit >= 0 && len(filtered) > limit {
 				filtered = filtered[:limit]
+			}
+			if len(filtered) == 0 {
+				// `--limit 0` (or smaller) truncated every finding away.
+				// Treat as "no results" so users see the new empty-state copy.
+				return renderEmpty(cfg, cmd.OutOrStdout(), labelPatternCopy, minSev, 0, nil)
 			}
 
 			return renderFindings(cfg, cmd.OutOrStdout(), filtered)
