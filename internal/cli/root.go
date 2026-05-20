@@ -75,6 +75,7 @@ func (e *exitError) Unwrap() error { return e.err }
 type flagError struct{ err error }
 
 func (e *flagError) Error() string { return e.err.Error() }
+func (e *flagError) Unwrap() error { return e.err }
 
 func newRootCmd(version string) *cobra.Command {
 	cmd := &cobra.Command{
