@@ -12,13 +12,14 @@ var (
 	ErrNotFound          = errors.New("prometheus endpoint not found")
 	ErrPrometheusVersion = errors.New("prometheus version too old")
 	ErrConflictingAuth   = errors.New("conflicting auth options")
-	ErrInvalidURL        = errors.New("invalid url")
+	ErrInvalidURL        = errors.New("invalid URL")
 )
 
 // Error captures the HTTP details of a failed Prometheus call.
 type Error struct {
 	StatusCode int
 	Status     string
+	Method     string
 	URL        string
 	Body       string
 
@@ -33,7 +34,7 @@ func (e *Error) Error() string {
 	if len(body) > maxBody {
 		body = body[:maxBody] + "...[truncated]"
 	}
-	return fmt.Sprintf("prometheus: GET %s -> %s: %s", e.URL, e.Status, body)
+	return fmt.Sprintf("prometheus: %s %s -> %s: %s", e.Method, e.URL, e.Status, body)
 }
 
 // Unwrap exposes the sentinel for errors.Is.
