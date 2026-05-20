@@ -28,3 +28,24 @@ func CardinalitySeverity(seriesCount, totalSeries int64) findings.Severity {
 		return findings.SeverityLow
 	}
 }
+
+// LabelPatternSeverity grades a suspicious label by its unique-value
+// magnitude. The caller has already confirmed the label name matches
+// a suspicious pattern; this function only ranks magnitude.
+//
+//	uniqueValues > 5000 → Critical
+//	uniqueValues > 1000 → High
+//	uniqueValues > 100  → Medium
+//	otherwise           → Low
+func LabelPatternSeverity(uniqueValues int) findings.Severity {
+	switch {
+	case uniqueValues > 5000:
+		return findings.SeverityCritical
+	case uniqueValues > 1000:
+		return findings.SeverityHigh
+	case uniqueValues > 100:
+		return findings.SeverityMedium
+	default:
+		return findings.SeverityLow
+	}
+}
