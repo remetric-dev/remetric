@@ -60,12 +60,11 @@ func newCardinalitySuspiciousCmd() *cobra.Command {
 				return &exitError{code: 1, err: err}
 			}
 
-			filtered := make([]findings.Finding, 0, len(all))
-			for _, f := range all {
-				if f.Severity >= minSev {
-					filtered = append(filtered, f)
-				}
+			filtered := filterAtLeast(all, minSev)
+			if len(filtered) == 0 {
+				return renderEmpty(cfg, cmd.OutOrStdout(), labelPatternCopy, minSev, len(all), tallyBySeverity(all))
 			}
+
 			sort.SliceStable(filtered, func(i, j int) bool {
 				if filtered[i].Severity != filtered[j].Severity {
 					return filtered[i].Severity > filtered[j].Severity
@@ -74,6 +73,11 @@ func newCardinalitySuspiciousCmd() *cobra.Command {
 			})
 			if limit >= 0 && len(filtered) > limit {
 				filtered = filtered[:limit]
+			}
+			if len(filtered) == 0 {
+				// `--limit 0` (or smaller) truncated every finding away.
+				// Treat as "no results" so users see the new empty-state copy.
+				return renderEmpty(cfg, cmd.OutOrStdout(), labelPatternCopy, minSev, 0, nil)
 			}
 
 			return renderFindings(cfg, cmd.OutOrStdout(), filtered)
