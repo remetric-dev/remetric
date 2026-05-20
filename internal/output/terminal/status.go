@@ -9,15 +9,17 @@ import (
 
 // DoctorReport holds the result of the `remetric doctor` command for rendering.
 type DoctorReport struct {
-	PrometheusURL string
-	Reachable     bool
-	Version       string
-	VersionOK     bool
-	AuthMethod    string
-	TSDBStatsOK   bool
-	NumSeries     int64
-	Elapsed       time.Duration
-	Errors        []DoctorError
+	PrometheusURL    string
+	Reachable        bool
+	Version          string
+	VersionOK        bool
+	AuthMethod       string
+	TSDBStatsOK      bool
+	NumSeries        int64
+	NumMetrics       int64
+	StorageRetention string
+	Elapsed          time.Duration
+	Errors           []DoctorError
 }
 
 // DoctorError describes a single failed check.
@@ -50,6 +52,12 @@ func (r *Renderer) RenderDoctor(rep DoctorReport) error {
 	w.printf("%s tsdb stats accessible (auth: %s)\n", mark(rep.TSDBStatsOK), rep.AuthMethod)
 	if rep.NumSeries > 0 {
 		w.printf("     active series: %s\n", fmtInt(rep.NumSeries))
+	}
+	if rep.NumMetrics > 0 {
+		w.printf("     metric names: %s\n", fmtInt(rep.NumMetrics))
+	}
+	if rep.StorageRetention != "" {
+		w.printf("     retention:    %s\n", rep.StorageRetention)
 	}
 
 	if len(rep.Errors) > 0 {
