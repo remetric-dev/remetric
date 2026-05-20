@@ -2,13 +2,13 @@
 package main
 
 import (
-	"fmt"
 	"os"
+
+	"github.com/remetric-dev/remetric/internal/cli"
 )
 
-// version is overridden at build time via -ldflags "-X main.version=...".
 var version = "dev"
 
 func main() {
-	fmt.Fprintln(os.Stderr, "remetric", version, "(scaffolding — CLI not wired yet)")
+	os.Exit(cli.Execute(version))
 }
