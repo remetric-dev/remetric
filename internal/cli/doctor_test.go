@@ -131,3 +131,48 @@ func TestDoctor_PopulatesMetricsAndRetention(t *testing.T) {
 		t.Errorf("expected retention line, got:\n%s", body)
 	}
 }
+
+func TestDoctor_JSONOutput(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/-/healthy":
+			w.WriteHeader(http.StatusOK)
+		case "/api/v1/status/buildinfo":
+			_, _ = w.Write([]byte(`{"status":"success","data":{"version":"2.51.2"}}`))
+		case "/api/v1/status/tsdb":
+			_, _ = w.Write([]byte(`{"status":"success","data":{"headStats":{"numSeries":1234},"seriesCountByMetricName":[],"labelValueCountByLabelName":[]}}`))
+		case "/api/v1/status/runtimeinfo":
+			_, _ = w.Write([]byte(`{"status":"success","data":{"storageRetention":"15d"}}`))
+		case "/api/v1/label/__name__/values":
+			_, _ = w.Write([]byte(`{"status":"success","data":["a","b","c"]}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer ts.Close()
+
+	var out bytes.Buffer
+	code := cli.ExecuteWith(cli.Args{
+		Version: "test",
+		Args:    []string{"doctor", "--prometheus", ts.URL, "--output", "json"},
+		Stdout:  &out,
+		Stderr:  &out,
+	})
+	if code != 0 {
+		t.Fatalf("non-zero exit: %d\n%s", code, out.String())
+	}
+	body := out.String()
+	for _, want := range []string{
+		`"prometheus_url"`,
+		`"reachable": true`,
+		`"version": "2.51.2"`,
+		`"num_series": 1234`,
+		`"num_metrics": 3`,
+		`"storage_retention": "15d"`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("expected %q in JSON output, got:\n%s", want, body)
+		}
+	}
+}

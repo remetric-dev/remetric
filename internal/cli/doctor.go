@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"strconv"
 	"strings"
 	"time"
@@ -14,6 +15,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/remetric-dev/remetric/internal/config"
+	"github.com/remetric-dev/remetric/internal/findings"
+	outjson "github.com/remetric-dev/remetric/internal/output/json"
 	"github.com/remetric-dev/remetric/internal/output/terminal"
 	prom "github.com/remetric-dev/remetric/internal/prometheus"
 )
@@ -28,7 +31,9 @@ func newDoctorCmd() *cobra.Command {
 supported version (2.30+), exposes the TSDB stats endpoint, and shows
 the head series count, total metric names, and configured retention.
 
-doctor is a read-only diagnostic; it never modifies the target.`,
+doctor is a read-only diagnostic; it never modifies the target.
+
+Use --output json to emit machine-readable output (e.g. for CI).`,
 		Example: `  # Default checks (no auth)
   remetric doctor --prometheus http://localhost:9090
 
@@ -50,6 +55,9 @@ func runDoctor(cmd *cobra.Command, _ []string) error {
 	if cfg == nil || cfg.Prometheus.URL == "" {
 		return &flagError{err: errors.New("--prometheus is required")}
 	}
+	if err := validateOutput(cfg.Output); err != nil {
+		return &flagError{err: err}
+	}
 
 	if cfg.Timeout > 0 {
 		var cancel context.CancelFunc
@@ -63,32 +71,32 @@ func runDoctor(cmd *cobra.Command, _ []string) error {
 		return &exitError{code: 2, err: err}
 	}
 
-	rep := terminal.DoctorReport{
+	rep := findings.DoctorReport{
 		PrometheusURL: cfg.Prometheus.URL,
 		AuthMethod:    authMethodFor(cfg),
 	}
 
 	if err := client.Ping(ctx); err != nil {
-		rep.Errors = append(rep.Errors, terminal.DoctorError{Check: "reachability", Err: err})
+		rep.Errors = append(rep.Errors, findings.DoctorError{Check: "reachability", Error: err.Error()})
 	} else {
 		rep.Reachable = true
 	}
 
 	if bi, err := client.BuildInfo(ctx); err != nil {
-		rep.Errors = append(rep.Errors, terminal.DoctorError{Check: "buildinfo", Err: err})
+		rep.Errors = append(rep.Errors, findings.DoctorError{Check: "buildinfo", Error: err.Error()})
 	} else {
 		rep.Version = bi.Version
 		rep.VersionOK = compareVersions(bi.Version, minPrometheusVersion) >= 0
 		if !rep.VersionOK {
-			rep.Errors = append(rep.Errors, terminal.DoctorError{
+			rep.Errors = append(rep.Errors, findings.DoctorError{
 				Check: "version",
-				Err:   fmt.Errorf("prometheus %s is below minimum %s", bi.Version, minPrometheusVersion),
+				Error: fmt.Sprintf("prometheus %s is below minimum %s", bi.Version, minPrometheusVersion),
 			})
 		}
 	}
 
 	if stats, err := client.TSDBStats(ctx, 1); err != nil {
-		rep.Errors = append(rep.Errors, terminal.DoctorError{Check: "tsdb_stats", Err: err})
+		rep.Errors = append(rep.Errors, findings.DoctorError{Check: "tsdb_stats", Error: err.Error()})
 	} else {
 		rep.TSDBStatsOK = true
 		rep.NumSeries = stats.HeadStats.NumSeries
@@ -103,16 +111,27 @@ func runDoctor(cmd *cobra.Command, _ []string) error {
 		rep.NumMetrics = int64(len(names))
 	}
 
-	rep.Elapsed = time.Since(start)
+	rep.ElapsedMs = time.Since(start).Milliseconds()
 
-	r := terminal.New(cmd.OutOrStdout(), terminal.WithColor(!cfg.NoColor))
-	if rerr := r.RenderDoctor(rep); rerr != nil {
-		return rerr
+	if err := renderDoctor(cfg, cmd.OutOrStdout(), rep); err != nil {
+		return err
 	}
 	if len(rep.Errors) > 0 {
 		return &exitError{code: 1, err: errors.New("doctor checks failed")}
 	}
 	return nil
+}
+
+// renderDoctor dispatches the DoctorReport to the configured output renderer.
+func renderDoctor(cfg *config.Config, w io.Writer, rep findings.DoctorReport) error {
+	switch cfg.Output {
+	case "", "terminal":
+		return terminal.New(w, terminal.WithColor(!cfg.NoColor)).RenderDoctor(rep)
+	case "json":
+		return outjson.New(w).RenderDoctor(rep)
+	default:
+		return &flagError{err: fmt.Errorf("unsupported --output %q (want terminal|json)", cfg.Output)}
+	}
 }
 
 func authMethodFor(cfg *config.Config) string {
