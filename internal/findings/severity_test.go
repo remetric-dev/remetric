@@ -4,6 +4,7 @@
 package findings
 
 import (
+	"encoding/json"
 	"sort"
 	"testing"
 )
@@ -58,6 +59,104 @@ func TestParseSeverity(t *testing.T) {
 		}
 		if !tt.wantErr && got != tt.want {
 			t.Errorf("ParseSeverity(%q) = %v, want %v", tt.in, got, tt.want)
+		}
+	}
+}
+
+func TestSeverity_MarshalJSON(t *testing.T) {
+	cases := []struct {
+		in   Severity
+		want string
+	}{
+		{SeverityLow, `"low"`},
+		{SeverityMedium, `"medium"`},
+		{SeverityHigh, `"high"`},
+		{SeverityCritical, `"critical"`},
+	}
+	for _, c := range cases {
+		got, err := json.Marshal(c.in)
+		if err != nil {
+			t.Fatalf("Marshal(%v) error: %v", c.in, err)
+		}
+		if string(got) != c.want {
+			t.Errorf("Marshal(%v) = %s, want %s", c.in, got, c.want)
+		}
+	}
+}
+
+func TestSeverity_UnmarshalJSON(t *testing.T) {
+	cases := []struct {
+		in   string
+		want Severity
+	}{
+		{`"low"`, SeverityLow},
+		{`"medium"`, SeverityMedium},
+		{`"HIGH"`, SeverityHigh},
+		{`"Critical"`, SeverityCritical},
+	}
+	for _, c := range cases {
+		var got Severity
+		if err := json.Unmarshal([]byte(c.in), &got); err != nil {
+			t.Fatalf("Unmarshal(%s) error: %v", c.in, err)
+		}
+		if got != c.want {
+			t.Errorf("Unmarshal(%s) = %v, want %v", c.in, got, c.want)
+		}
+	}
+}
+
+func TestSeverity_UnmarshalJSON_Invalid(t *testing.T) {
+	var s Severity
+	err := json.Unmarshal([]byte(`"nope"`), &s)
+	if err == nil {
+		t.Fatalf("Unmarshal(\"nope\") = nil error, want error")
+	}
+}
+
+func TestSeverity_UnmarshalJSON_Null(t *testing.T) {
+	s := SeverityHigh
+	if err := json.Unmarshal([]byte(`null`), &s); err != nil {
+		t.Errorf("Unmarshal(null) error: %v, want nil", err)
+	}
+	if s != SeverityHigh {
+		t.Errorf("Unmarshal(null) modified severity: got %v, want SeverityHigh", s)
+	}
+}
+
+func TestSeverity_UnmarshalJSON_EscapedString(t *testing.T) {
+	// "low" decodes to "low" at the JSON layer.
+	var s Severity
+	if err := json.Unmarshal([]byte(`"low"`), &s); err != nil {
+		t.Fatalf("Unmarshal escaped: %v", err)
+	}
+	if s != SeverityLow {
+		t.Errorf("Unmarshal escaped = %v, want SeverityLow", s)
+	}
+}
+
+func TestSeverity_UnmarshalJSON_NonString(t *testing.T) {
+	cases := []string{`123`, `true`, `["low"]`, `{"x":1}`}
+	for _, in := range cases {
+		var s Severity
+		err := json.Unmarshal([]byte(in), &s)
+		if err == nil {
+			t.Errorf("Unmarshal(%s) = nil error, want error", in)
+		}
+	}
+}
+
+func TestSeverity_RoundTrip(t *testing.T) {
+	for _, sev := range []Severity{SeverityLow, SeverityMedium, SeverityHigh, SeverityCritical} {
+		b, err := json.Marshal(sev)
+		if err != nil {
+			t.Fatalf("Marshal(%v): %v", sev, err)
+		}
+		var got Severity
+		if err := json.Unmarshal(b, &got); err != nil {
+			t.Fatalf("Unmarshal(%s): %v", b, err)
+		}
+		if got != sev {
+			t.Errorf("round-trip(%v) = %v", sev, got)
 		}
 	}
 }

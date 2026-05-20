@@ -6,7 +6,7 @@
 │ MEDIUM   │ node_filesystem_size_bytes   │ device                │ 31,200  │ 52     │ ~30,600        │
 └──────────┴──────────────────────────────┴───────────────────────┴─────────┴────────┴────────────────┘
 
-[CRITICAL] istio_requests_total  ·  destination_principal has 5234 unique values
+[CRITICAL] istio_requests_total  ·  destination_principal has 5,234 unique values
 Sample: spiffe://orders, spiffe://payments
 Estimated reduction (upper bound): 487,141 series
 

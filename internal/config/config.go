@@ -20,7 +20,8 @@ type Config struct {
 	Prometheus PrometheusConfig
 	Verbose    bool
 	Timeout    time.Duration
-	NoColor    bool `mapstructure:"no_color"`
+	NoColor    bool   `mapstructure:"no_color"`
+	Output     string `mapstructure:"output"`
 }
 
 // PrometheusConfig holds Prometheus client options.
@@ -41,6 +42,7 @@ func BindFlags(fs *pflag.FlagSet) {
 	fs.Bool("prom-tls-skip-verify", false, "Skip TLS verification")
 	fs.Int("prom-max-in-flight", 5, "Max concurrent Prometheus requests")
 	fs.Bool("no-color", false, "Disable colored output")
+	fs.String("output", "terminal", "Output format: terminal|json")
 	fs.BoolP("verbose", "v", false, "Verbose logging")
 	fs.Duration("timeout", 5*time.Minute, "Total operation timeout")
 	fs.String("config", "", "Path to config file")
@@ -55,6 +57,7 @@ func Load(fs *pflag.FlagSet, cfgPath string) (*Config, error) {
 
 	v.SetDefault("prometheus.max_in_flight", 5)
 	v.SetDefault("timeout", 5*time.Minute)
+	v.SetDefault("output", "terminal")
 
 	bindings := map[string]string{
 		"prometheus":           "prometheus.url",
@@ -63,6 +66,7 @@ func Load(fs *pflag.FlagSet, cfgPath string) (*Config, error) {
 		"prom-tls-skip-verify": "prometheus.tls_skip_verify",
 		"prom-max-in-flight":   "prometheus.max_in_flight",
 		"no-color":             "no_color",
+		"output":               "output",
 		"verbose":              "verbose",
 		"timeout":              "timeout",
 	}

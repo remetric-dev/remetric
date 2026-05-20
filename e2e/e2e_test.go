@@ -45,6 +45,32 @@ func TestE2E_CardinalityTop(t *testing.T) {
 	}
 }
 
+func TestE2E_CardinalitySuspicious_JSON(t *testing.T) {
+	out, err := runCmd(t, binPath(t), "cardinality", "suspicious", "--prometheus", "http://localhost:9090", "--output", "json", "--min-severity", "low")
+	if err != nil {
+		t.Fatalf("cardinality suspicious failed: %v\noutput:\n%s", err, out)
+	}
+	if !strings.HasPrefix(strings.TrimSpace(out), "{") {
+		t.Errorf("expected JSON document, got:\n%s", out)
+	}
+	if !strings.Contains(out, `"findings"`) {
+		t.Errorf("expected findings key, got:\n%s", out)
+	}
+}
+
+func TestE2E_CardinalityLabels_JSON(t *testing.T) {
+	out, err := runCmd(t, binPath(t), "cardinality", "labels", "--metric", "up", "--prometheus", "http://localhost:9090", "--output", "json")
+	if err != nil {
+		t.Fatalf("cardinality labels failed: %v\noutput:\n%s", err, out)
+	}
+	if !strings.Contains(out, `"metric": "up"`) {
+		t.Errorf("expected metric key with 'up' value, got:\n%s", out)
+	}
+	if !strings.Contains(out, `"labels"`) {
+		t.Errorf("expected labels key, got:\n%s", out)
+	}
+}
+
 func runCmd(t *testing.T, name string, args ...string) (string, error) {
 	t.Helper()
 	var buf bytes.Buffer
