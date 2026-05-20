@@ -4,6 +4,9 @@ package cardinality
 
 import "github.com/remetric-dev/remetric/internal/findings"
 
+// severity returns the severity tier for a metric contributing seriesCount
+// out of totalSeries, per the spec thresholds. The boundary semantics are
+// strict greater-than (e.g. exactly 300_000 → High, not Critical).
 func severity(seriesCount, totalSeries int64) findings.Severity {
 	if totalSeries <= 0 {
 		totalSeries = 1

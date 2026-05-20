@@ -16,9 +16,14 @@ const fixTemplate = `metric_relabel_configs:
 
 var fixTmpl = template.Must(template.New("fix").Parse(fixTemplate))
 
+type fixData struct {
+	Metric string
+	Label  string
+}
+
 func renderFix(metric, label string) (string, error) {
 	var buf bytes.Buffer
-	if err := fixTmpl.Execute(&buf, struct{ Metric, Label string }{metric, label}); err != nil {
+	if err := fixTmpl.Execute(&buf, fixData{Metric: metric, Label: label}); err != nil {
 		return "", fmt.Errorf("render fix: %w", err)
 	}
 	return buf.String(), nil

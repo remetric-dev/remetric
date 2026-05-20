@@ -2,6 +2,8 @@ package cardinality_test
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -56,6 +58,52 @@ func TestCardinalityAnalyzer_TopMetric(t *testing.T) {
 	wantID := "card-istio_requests_total-destination_principal"
 	if f.ID != wantID {
 		t.Errorf("ID = %q, want %q", f.ID, wantID)
+	}
+	if f.Category != findings.CategoryCardinality {
+		t.Errorf("Category = %q, want %q", f.Category, findings.CategoryCardinality)
+	}
+}
+
+func TestCardinalityAnalyzer_Name(t *testing.T) {
+	if got, want := cardinality.New().Name(), "cardinality"; got != want {
+		t.Errorf("Name() = %q, want %q", got, want)
+	}
+}
+
+func TestCardinalityAnalyzer_SortsBySeverity(t *testing.T) {
+	srv := promtest.NewServer(t, "testdata", promtest.Routes{
+		"/api/v1/status/tsdb":       "tsdb_two_bombs.json",
+		"/api/v1/labels":            "labels_big.json",
+		"/api/v1/label/kind/values": "label_values_big_kind.json",
+	})
+	a := cardinality.New()
+	got, err := a.Analyze(context.Background(), newDeps(t, srv.URL))
+	if err != nil {
+		t.Fatalf("Analyze err = %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("len(findings) = %d, want 2", len(got))
+	}
+	if got[0].Severity != findings.SeverityCritical {
+		t.Errorf("first.Severity = %v, want Critical", got[0].Severity)
+	}
+	if got[1].Severity != findings.SeverityHigh {
+		t.Errorf("second.Severity = %v, want High", got[1].Severity)
+	}
+	if got[0].Metric != "big_metric_second" {
+		t.Errorf("first.Metric = %q, want big_metric_second", got[0].Metric)
+	}
+}
+
+func TestCardinalityAnalyzer_PrometheusError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer srv.Close()
+	a := cardinality.New()
+	_, err := a.Analyze(context.Background(), newDeps(t, srv.URL))
+	if err == nil {
+		t.Errorf("Analyze err = nil, want propagated 500")
 	}
 }
 

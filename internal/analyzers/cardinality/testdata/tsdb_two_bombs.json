@@ -1,0 +1,13 @@
+{
+  "status":"success",
+  "data":{
+    "headStats":{"numSeries":1000000,"numLabelPairs":0,"chunkCount":0,"minTime":0,"maxTime":0},
+    "seriesCountByMetricName":[
+      {"name":"low_metric_first","value":120000},
+      {"name":"big_metric_second","value":500000}
+    ],
+    "labelValueCountByLabelName":[],
+    "memoryInBytesByLabelName":[],
+    "seriesCountByLabelValuePair":[]
+  }
+}
