@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"strconv"
 	"strings"
 	"time"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/remetric-dev/remetric/internal/config"
 	"github.com/remetric-dev/remetric/internal/findings"
+	outjson "github.com/remetric-dev/remetric/internal/output/json"
 	"github.com/remetric-dev/remetric/internal/output/terminal"
 	prom "github.com/remetric-dev/remetric/internal/prometheus"
 )
@@ -29,7 +31,9 @@ func newDoctorCmd() *cobra.Command {
 supported version (2.30+), exposes the TSDB stats endpoint, and shows
 the head series count, total metric names, and configured retention.
 
-doctor is a read-only diagnostic; it never modifies the target.`,
+doctor is a read-only diagnostic; it never modifies the target.
+
+Use --output json to emit machine-readable output (e.g. for CI).`,
 		Example: `  # Default checks (no auth)
   remetric doctor --prometheus http://localhost:9090
 
@@ -50,6 +54,9 @@ func runDoctor(cmd *cobra.Command, _ []string) error {
 	cfg := configFrom(ctx)
 	if cfg == nil || cfg.Prometheus.URL == "" {
 		return &flagError{err: errors.New("--prometheus is required")}
+	}
+	if err := validateOutput(cfg.Output); err != nil {
+		return &flagError{err: err}
 	}
 
 	if cfg.Timeout > 0 {
@@ -106,14 +113,25 @@ func runDoctor(cmd *cobra.Command, _ []string) error {
 
 	rep.ElapsedMs = time.Since(start).Milliseconds()
 
-	r := terminal.New(cmd.OutOrStdout(), terminal.WithColor(!cfg.NoColor))
-	if rerr := r.RenderDoctor(rep); rerr != nil {
-		return rerr
+	if err := renderDoctor(cfg, cmd.OutOrStdout(), rep); err != nil {
+		return err
 	}
 	if len(rep.Errors) > 0 {
 		return &exitError{code: 1, err: errors.New("doctor checks failed")}
 	}
 	return nil
+}
+
+// renderDoctor dispatches the DoctorReport to the configured output renderer.
+func renderDoctor(cfg *config.Config, w io.Writer, rep findings.DoctorReport) error {
+	switch cfg.Output {
+	case "", "terminal":
+		return terminal.New(w, terminal.WithColor(!cfg.NoColor)).RenderDoctor(rep)
+	case "json":
+		return outjson.New(w).RenderDoctor(rep)
+	default:
+		return &flagError{err: fmt.Errorf("unsupported --output %q (want terminal|json)", cfg.Output)}
+	}
 }
 
 func authMethodFor(cfg *config.Config) string {
