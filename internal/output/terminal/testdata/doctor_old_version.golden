@@ -1,0 +1,8 @@
+remetric doctor — http://localhost:9090 (in 300ms)
+
+[OK] reachable
+[FAIL] version 2.29.1 (below minimum 2.30)
+[FAIL] tsdb stats accessible (auth: bearer)
+
+Issues:
+  · version: prometheus 2.29.1 is below minimum 2.30.0
