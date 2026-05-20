@@ -74,3 +74,26 @@ func TestIsBounded_BlocksKnownLabels(t *testing.T) {
 		}
 	}
 }
+
+func TestCompilePatterns_Happy(t *testing.T) {
+	pats, err := CompilePatterns([]string{`^foo$`, `bar.*baz`})
+	if err != nil {
+		t.Fatalf("CompilePatterns: %v", err)
+	}
+	if len(pats) != 2 {
+		t.Errorf("len = %d, want 2", len(pats))
+	}
+	if !pats[0].MatchString("foo") {
+		t.Errorf("pats[0] should match \"foo\"")
+	}
+	if !pats[1].MatchString("barxbaz") {
+		t.Errorf("pats[1] should match \"barxbaz\"")
+	}
+}
+
+func TestCompilePatterns_InvalidRegex(t *testing.T) {
+	_, err := CompilePatterns([]string{`^valid$`, `[unclosed`})
+	if err == nil {
+		t.Errorf("expected error for invalid regex, got nil")
+	}
+}
