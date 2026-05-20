@@ -50,6 +50,41 @@ changelog:
       - "^chore:"
       - "Merge "
 
+dockers:
+  - id: remetric-amd64
+    image_templates:
+      - "ghcr.io/remetric-dev/remetric:{{ .Version }}-amd64"
+      - "ghcr.io/remetric-dev/remetric:latest-amd64"
+    dockerfile: Dockerfile
+    use: buildx
+    goarch: amd64
+    build_flag_templates:
+      - "--platform=linux/amd64"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
+
+  - id: remetric-arm64
+    image_templates:
+      - "ghcr.io/remetric-dev/remetric:{{ .Version }}-arm64"
+      - "ghcr.io/remetric-dev/remetric:latest-arm64"
+    dockerfile: Dockerfile
+    use: buildx
+    goarch: arm64
+    build_flag_templates:
+      - "--platform=linux/arm64"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
+
+docker_manifests:
+  - name_template: "ghcr.io/remetric-dev/remetric:{{ .Version }}"
+    image_templates:
+      - "ghcr.io/remetric-dev/remetric:{{ .Version }}-amd64"
+      - "ghcr.io/remetric-dev/remetric:{{ .Version }}-arm64"
+  - name_template: "ghcr.io/remetric-dev/remetric:latest"
+    image_templates:
+      - "ghcr.io/remetric-dev/remetric:latest-amd64"
+      - "ghcr.io/remetric-dev/remetric:latest-arm64"
+
 release:
   prerelease: auto
   draft: false
