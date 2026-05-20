@@ -1,8 +1,10 @@
 package prometheus
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -93,3 +95,78 @@ func (s slogLogger) Error(msg string, kv ...interface{}) { s.Logger.Error(msg, k
 func (s slogLogger) Warn(msg string, kv ...interface{})  { s.Logger.Warn(msg, kv...) }
 func (s slogLogger) Info(msg string, kv ...interface{})  { s.Logger.Info(msg, kv...) }
 func (s slogLogger) Debug(msg string, kv ...interface{}) { s.Logger.Debug(msg, kv...) }
+
+// do executes an HTTP request against the Prometheus base URL, honouring
+// auth, user-agent, max-in-flight, retries, and ctx.
+func (c *Client) do(ctx context.Context, method, pathAndQuery string, body io.Reader) ([]byte, error) {
+	select {
+	case c.sem <- struct{}{}:
+		defer func() { <-c.sem }()
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+
+	u := *c.baseURL
+	parsed, err := url.Parse(pathAndQuery)
+	if err != nil {
+		return nil, fmt.Errorf("remetric: invalid path %q: %w", pathAndQuery, err)
+	}
+	u.Path = singleJoin(u.Path, parsed.Path)
+	u.RawQuery = parsed.RawQuery
+
+	req, err := retryablehttp.NewRequestWithContext(ctx, method, u.String(), body)
+	if err != nil {
+		return nil, fmt.Errorf("remetric: build request: %w", err)
+	}
+	req.Header.Set("User-Agent", c.userAgent)
+	req.Header.Set("Accept", "application/json")
+	c.auth.apply(req.Request)
+
+	start := time.Now()
+	resp, err := c.hc.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("remetric: request to %s: %w", u.String(), err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	buf, err := io.ReadAll(io.LimitReader(resp.Body, 16*1024*1024))
+	if err != nil {
+		return nil, fmt.Errorf("remetric: read body: %w", err)
+	}
+
+	c.logger.Debug("prometheus request",
+		"method", method,
+		"url", u.String(),
+		"status", resp.StatusCode,
+		"duration", time.Since(start).String(),
+		"bytes", len(buf))
+
+	if resp.StatusCode >= 400 {
+		e := &Error{StatusCode: resp.StatusCode, Status: resp.Status, Method: method, URL: u.String(), Body: string(buf)}
+		switch resp.StatusCode {
+		case http.StatusUnauthorized, http.StatusForbidden:
+			e.sentinel = ErrAuth
+		case http.StatusNotFound:
+			e.sentinel = ErrNotFound
+		}
+		return nil, e
+	}
+	return buf, nil
+}
+
+// singleJoin joins URL path segments collapsing duplicate slashes.
+func singleJoin(a, b string) string {
+	if a == "" {
+		return b
+	}
+	if b == "" {
+		return a
+	}
+	if a[len(a)-1] == '/' && b[0] == '/' {
+		return a + b[1:]
+	}
+	if a[len(a)-1] != '/' && b[0] != '/' {
+		return a + "/" + b
+	}
+	return a + b
+}
