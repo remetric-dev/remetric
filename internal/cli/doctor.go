@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strconv"
@@ -30,6 +31,12 @@ func runDoctor(cmd *cobra.Command, _ []string) error {
 	cfg := configFrom(ctx)
 	if cfg == nil || cfg.Prometheus.URL == "" {
 		return &flagError{err: errors.New("--prometheus is required")}
+	}
+
+	if cfg.Timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, cfg.Timeout)
+		defer cancel()
 	}
 
 	start := time.Now()

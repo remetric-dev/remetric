@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"sort"
@@ -37,6 +38,11 @@ func newCardinalityTopCmd() *cobra.Command {
 			if cfg == nil || cfg.Prometheus.URL == "" {
 				return &flagError{err: errors.New("--prometheus is required")}
 			}
+			if cfg.Timeout > 0 {
+				var cancel context.CancelFunc
+				ctx, cancel = context.WithTimeout(ctx, cfg.Timeout)
+				defer cancel()
+			}
 			minSev, err := findings.ParseSeverity(minSeverity)
 			if err != nil {
 				return &flagError{err: fmt.Errorf("invalid --min-severity: %w", err)}
@@ -58,7 +64,7 @@ func newCardinalityTopCmd() *cobra.Command {
 				return &exitError{code: 1, err: err}
 			}
 
-			filtered := all[:0]
+			filtered := make([]findings.Finding, 0, len(all))
 			for _, f := range all {
 				if f.Severity >= minSev {
 					filtered = append(filtered, f)
