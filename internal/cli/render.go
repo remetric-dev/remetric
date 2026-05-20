@@ -37,3 +37,18 @@ func validateOutput(s string) error {
 		return fmt.Errorf("invalid --output: %q (want terminal|json)", s)
 	}
 }
+
+// renderReport dispatches Report rendering based on cfg.Output.
+// Terminal output reuses RenderFindings (no header for now).
+// JSON emits the full §5.5 envelope.
+func renderReport(cfg *config.Config, w io.Writer, rep *findings.Report) error {
+	switch cfg.Output {
+	case "", "terminal":
+		r := terminal.New(w, terminal.WithColor(!cfg.NoColor))
+		return r.RenderFindings(rep.Findings)
+	case "json":
+		return outjson.New(w).RenderReport(rep)
+	default:
+		return fmt.Errorf("unsupported --output %q (want terminal|json)", cfg.Output)
+	}
+}
