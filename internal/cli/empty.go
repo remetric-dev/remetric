@@ -32,6 +32,10 @@ var (
 		NoResults: "No suspicious labels found (no label names matched the unbounded-identifier patterns).",
 		Subject:   "suspicious labels",
 	}
+	unusedMetricsCopy = emptyCopy{
+		NoResults: "No unused metrics found — every ingested metric is referenced by a dashboard, alert, or recording rule.",
+		Subject:   "unused metrics",
+	}
 )
 
 // tallyBySeverity counts findings per severity tier.

@@ -18,6 +18,7 @@ import (
 // Config is the fully-resolved runtime configuration.
 type Config struct {
 	Prometheus PrometheusConfig
+	Grafana    GrafanaConfig
 	Verbose    bool
 	Timeout    time.Duration
 	NoColor    bool   `mapstructure:"no_color"`
@@ -33,6 +34,15 @@ type PrometheusConfig struct {
 	MaxInFlight   int    `mapstructure:"max_in_flight"`
 }
 
+// GrafanaConfig holds Grafana client options.
+type GrafanaConfig struct {
+	URL           string `mapstructure:"url"`
+	Token         string `mapstructure:"token"`
+	BasicAuth     string `mapstructure:"basic_auth"`
+	TLSSkipVerify bool   `mapstructure:"tls_skip_verify"`
+	MaxInFlight   int    `mapstructure:"max_in_flight"`
+}
+
 // BindFlags wires pflag flags into a flag set. The same flag set is later
 // passed to Load.
 func BindFlags(fs *pflag.FlagSet) {
@@ -41,6 +51,11 @@ func BindFlags(fs *pflag.FlagSet) {
 	fs.String("prom-basic-auth", "", "Basic auth as user:password")
 	fs.Bool("prom-tls-skip-verify", false, "Skip TLS verification")
 	fs.Int("prom-max-in-flight", 5, "Max concurrent Prometheus requests")
+	fs.String("grafana", "", "Grafana base URL")
+	fs.String("grafana-token", "", "Bearer token (service-account API key) for Grafana")
+	fs.String("grafana-basic-auth", "", "Basic auth as user:password for Grafana")
+	fs.Bool("grafana-tls-skip-verify", false, "Skip TLS verification for Grafana")
+	fs.Int("grafana-max-in-flight", 5, "Max concurrent Grafana requests")
 	fs.Bool("no-color", false, "Disable colored output")
 	fs.String("output", "terminal", "Output format: terminal|json")
 	fs.BoolP("verbose", "v", false, "Verbose logging")
@@ -56,19 +71,25 @@ func Load(fs *pflag.FlagSet, cfgPath string) (*Config, error) {
 	v.AutomaticEnv()
 
 	v.SetDefault("prometheus.max_in_flight", 5)
+	v.SetDefault("grafana.max_in_flight", 5)
 	v.SetDefault("timeout", 5*time.Minute)
 	v.SetDefault("output", "terminal")
 
 	bindings := map[string]string{
-		"prometheus":           "prometheus.url",
-		"prom-token":           "prometheus.token",
-		"prom-basic-auth":      "prometheus.basic_auth",
-		"prom-tls-skip-verify": "prometheus.tls_skip_verify",
-		"prom-max-in-flight":   "prometheus.max_in_flight",
-		"no-color":             "no_color",
-		"output":               "output",
-		"verbose":              "verbose",
-		"timeout":              "timeout",
+		"prometheus":              "prometheus.url",
+		"prom-token":              "prometheus.token",
+		"prom-basic-auth":         "prometheus.basic_auth",
+		"prom-tls-skip-verify":    "prometheus.tls_skip_verify",
+		"prom-max-in-flight":      "prometheus.max_in_flight",
+		"grafana":                 "grafana.url",
+		"grafana-token":           "grafana.token",
+		"grafana-basic-auth":      "grafana.basic_auth",
+		"grafana-tls-skip-verify": "grafana.tls_skip_verify",
+		"grafana-max-in-flight":   "grafana.max_in_flight",
+		"no-color":                "no_color",
+		"output":                  "output",
+		"verbose":                 "verbose",
+		"timeout":                 "timeout",
 	}
 	for flagName, key := range bindings {
 		if f := fs.Lookup(flagName); f != nil {

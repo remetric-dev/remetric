@@ -151,3 +151,49 @@ func TestConfig_OutputEnvOverride(t *testing.T) {
 		t.Errorf("Output = %q, want %q", cfg.Output, "json")
 	}
 }
+
+func TestConfig_GrafanaFlags(t *testing.T) {
+	fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
+	config.BindFlags(fs)
+	args := []string{
+		"--grafana", "http://gra.example",
+		"--grafana-token", "tok123",
+		"--grafana-tls-skip-verify",
+	}
+	if err := fs.Parse(args); err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	cfg, err := config.Load(fs, "")
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.Grafana.URL != "http://gra.example" {
+		t.Errorf("URL = %q, want %q", cfg.Grafana.URL, "http://gra.example")
+	}
+	if cfg.Grafana.Token != "tok123" {
+		t.Errorf("Token = %q, want %q", cfg.Grafana.Token, "tok123")
+	}
+	if !cfg.Grafana.TLSSkipVerify {
+		t.Errorf("TLSSkipVerify = false, want true")
+	}
+}
+
+func TestConfig_GrafanaEnvOverride(t *testing.T) {
+	t.Setenv("REMETRIC_GRAFANA_URL", "http://env.example")
+	t.Setenv("REMETRIC_GRAFANA_TOKEN", "envtok")
+	fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
+	config.BindFlags(fs)
+	if err := fs.Parse(nil); err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	cfg, err := config.Load(fs, "")
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.Grafana.URL != "http://env.example" {
+		t.Errorf("URL = %q, want %q", cfg.Grafana.URL, "http://env.example")
+	}
+	if cfg.Grafana.Token != "envtok" {
+		t.Errorf("Token = %q, want %q", cfg.Grafana.Token, "envtok")
+	}
+}
