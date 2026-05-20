@@ -1,0 +1,29 @@
+{
+  "status":"success",
+  "data":{
+    "headStats":{
+      "numSeries":2341892,
+      "numLabelPairs":18234,
+      "chunkCount":7100211,
+      "minTime":1700000000000,
+      "maxTime":1716200000000
+    },
+    "seriesCountByMetricName":[
+      {"name":"istio_requests_total","value":487234},
+      {"name":"apiserver_request_total","value":412008},
+      {"name":"etcd_request_duration_seconds_bucket","value":124540},
+      {"name":"node_filesystem_size_bytes","value":31200}
+    ],
+    "labelValueCountByLabelName":[
+      {"name":"destination_principal","value":5234},
+      {"name":"resource","value":1902},
+      {"name":"grpc_method","value":148}
+    ],
+    "memoryInBytesByLabelName":[
+      {"name":"destination_principal","value":120000000}
+    ],
+    "seriesCountByLabelValuePair":[
+      {"name":"job=istio","value":487234}
+    ]
+  }
+}
