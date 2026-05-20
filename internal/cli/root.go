@@ -128,5 +128,6 @@ Supported Prometheus versions: 2.30 and newer.`,
 
 	cmd.AddCommand(newDoctorCmd())
 	cmd.AddCommand(newCardinalityCmd())
+	cmd.AddCommand(newUnusedCmd())
 	return cmd
 }

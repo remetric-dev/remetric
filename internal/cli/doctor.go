@@ -16,6 +16,7 @@ import (
 
 	"github.com/remetric-dev/remetric/internal/config"
 	"github.com/remetric-dev/remetric/internal/findings"
+	graf "github.com/remetric-dev/remetric/internal/grafana"
 	outjson "github.com/remetric-dev/remetric/internal/output/json"
 	"github.com/remetric-dev/remetric/internal/output/terminal"
 	prom "github.com/remetric-dev/remetric/internal/prometheus"
@@ -164,6 +165,35 @@ func buildPromClient(cfg *config.Config, ua string) (*prom.Client, error) {
 		opts = append(opts, prom.WithTimeout(cfg.Timeout))
 	}
 	return prom.New(cfg.Prometheus.URL, opts...)
+}
+
+// buildGrafanaClient constructs a Grafana client from cfg. Returns
+// (nil, nil) if cfg.Grafana.URL is empty (no Grafana configured).
+func buildGrafanaClient(cfg *config.Config, ua string) (*graf.Client, error) {
+	if cfg.Grafana.URL == "" {
+		return nil, nil
+	}
+	opts := []graf.Option{graf.WithUserAgent(ua)}
+	if cfg.Grafana.MaxInFlight > 0 {
+		opts = append(opts, graf.WithMaxInFlight(cfg.Grafana.MaxInFlight))
+	}
+	if cfg.Grafana.Token != "" {
+		opts = append(opts, graf.WithBearerToken(cfg.Grafana.Token))
+	}
+	if cfg.Grafana.BasicAuth != "" {
+		parts := strings.SplitN(cfg.Grafana.BasicAuth, ":", 2)
+		if len(parts) != 2 {
+			return nil, errors.New("--grafana-basic-auth must be user:password")
+		}
+		opts = append(opts, graf.WithBasicAuth(parts[0], parts[1]))
+	}
+	if cfg.Grafana.TLSSkipVerify {
+		opts = append(opts, graf.WithTLSSkipVerify(true))
+	}
+	if cfg.Timeout > 0 {
+		opts = append(opts, graf.WithTimeout(cfg.Timeout))
+	}
+	return graf.New(cfg.Grafana.URL, opts...)
 }
 
 // compareVersions compares dotted semver-ish strings ignoring pre-release.
