@@ -12,6 +12,9 @@ docs/superpowers/
 *.out
 coverage.txt
 
+# goreleaser output
+/dist/
+
 # Go workspace files
 go.work
 go.work.sum

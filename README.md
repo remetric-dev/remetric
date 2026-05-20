@@ -10,6 +10,31 @@ problems with suggested `metric_relabel_configs` fixes.
 > analyzer + JSON output are wired up. Grafana integration, alert hygiene,
 > unused-metric detection, and HTML/Markdown reports come in later phases.
 
+## Install
+
+### One-line install
+
+```bash
+curl -sSL https://raw.githubusercontent.com/remetric-dev/remetric/main/install.sh | sh
+```
+
+Installs the latest release into `$HOME/.local/bin`. Override with
+`REMETRIC_INSTALL_DIR=/usr/local/bin sh install.sh` (may need `sudo`) or pin a
+specific version via `REMETRIC_VERSION=v0.1.0 sh install.sh`.
+
+### Docker
+
+```bash
+docker run --rm ghcr.io/remetric-dev/remetric:latest doctor --prometheus http://prometheus:9090
+```
+
+Multi-arch image (`linux/amd64`, `linux/arm64`).
+
+### Manual download
+
+GitHub Releases ship signed tarballs and a `checksums.txt`. See
+[https://github.com/remetric-dev/remetric/releases](https://github.com/remetric-dev/remetric/releases).
+
 ## 60-second quickstart
 
 ```bash
