@@ -11,5 +11,4 @@ var version = "dev"
 
 func main() {
 	fmt.Fprintln(os.Stderr, "remetric", version, "(scaffolding — CLI not wired yet)")
-	os.Exit(0)
 }
