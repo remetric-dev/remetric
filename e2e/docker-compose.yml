@@ -16,6 +16,12 @@ services:
     container_name: remetric-e2e-node
     ports:
       - "9100:9100"
+  cardinality-bomb:
+    build:
+      context: ./cardinality-bomb
+    container_name: remetric-e2e-bomb
+    ports:
+      - "8080:8080"
   grafana:
     image: grafana/grafana:11.0.0
     container_name: remetric-e2e-grafana
