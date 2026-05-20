@@ -78,6 +78,16 @@ func runDoctor(cmd *cobra.Command, _ []string) error {
 		rep.TSDBStatsOK = true
 		rep.NumSeries = stats.HeadStats.NumSeries
 	}
+
+	// Best-effort enrichments: failures are silently ignored so the report
+	// simply omits these fields. The [OK] markers above remain authoritative.
+	if rt, err := client.RuntimeInfo(ctx); err == nil {
+		rep.StorageRetention = rt.StorageRetention
+	}
+	if names, err := client.LabelValues(ctx, "__name__"); err == nil {
+		rep.NumMetrics = int64(len(names))
+	}
+
 	rep.Elapsed = time.Since(start)
 
 	r := terminal.New(cmd.OutOrStdout(), terminal.WithColor(!cfg.NoColor))

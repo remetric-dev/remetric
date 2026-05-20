@@ -92,3 +92,42 @@ func TestDoctor_MissingURL(t *testing.T) {
 		t.Errorf("exit = %d, want 2 (invalid flags)", code)
 	}
 }
+
+func TestDoctor_PopulatesMetricsAndRetention(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/-/healthy":
+			w.WriteHeader(http.StatusOK)
+		case "/api/v1/status/buildinfo":
+			_, _ = w.Write([]byte(`{"status":"success","data":{"version":"2.51.2"}}`))
+		case "/api/v1/status/tsdb":
+			_, _ = w.Write([]byte(`{"status":"success","data":{"headStats":{"numSeries":1234},"seriesCountByMetricName":[],"labelValueCountByLabelName":[]}}`))
+		case "/api/v1/status/runtimeinfo":
+			_, _ = w.Write([]byte(`{"status":"success","data":{"storageRetention":"15d"}}`))
+		case "/api/v1/label/__name__/values":
+			_, _ = w.Write([]byte(`{"status":"success","data":["a","b","c"]}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer ts.Close()
+
+	var out bytes.Buffer
+	code := cli.ExecuteWith(cli.Args{
+		Version: "test",
+		Args:    []string{"doctor", "--prometheus", ts.URL, "--no-color"},
+		Stdout:  &out,
+		Stderr:  &out,
+	})
+	if code != 0 {
+		t.Fatalf("non-zero exit: %d\n%s", code, out.String())
+	}
+	body := out.String()
+	if !strings.Contains(body, "metric names: 3") {
+		t.Errorf("expected metric names line, got:\n%s", body)
+	}
+	if !strings.Contains(body, "retention:    15d") {
+		t.Errorf("expected retention line, got:\n%s", body)
+	}
+}
