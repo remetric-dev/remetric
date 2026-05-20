@@ -48,9 +48,30 @@ func TestNew_RejectsEmptyURL(t *testing.T) {
 }
 
 func TestNew_RejectsConflictingAuth(t *testing.T) {
-	_, err := New("http://prom:9090", WithBearerToken("t"), WithBasicAuth("u", "p"))
-	if !errors.Is(err, ErrConflictingAuth) {
-		t.Errorf("New(both auth) err = %v, want wrap ErrConflictingAuth", err)
+	tests := []struct {
+		name string
+		opts []Option
+	}{
+		{"bearer then basic", []Option{WithBearerToken("t"), WithBasicAuth("u", "p")}},
+		{"basic then bearer", []Option{WithBasicAuth("u", "p"), WithBearerToken("t")}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := New("http://prom:9090", tt.opts...)
+			if !errors.Is(err, ErrConflictingAuth) {
+				t.Errorf("err = %v, want wraps ErrConflictingAuth", err)
+			}
+		})
+	}
+}
+
+func TestNew_AllowsSameKindAuthOverride(t *testing.T) {
+	c, err := New("http://prom:9090", WithBearerToken("a"), WithBearerToken("b"))
+	if err != nil {
+		t.Fatalf("two WithBearerToken calls: err = %v, want nil", err)
+	}
+	if got, ok := c.auth.(bearerAuth); !ok || got.token != "b" {
+		t.Errorf("auth = %+v (%T), want bearerAuth{token: \"b\"}", c.auth, c.auth)
 	}
 }
 

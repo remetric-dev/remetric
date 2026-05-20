@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"reflect"
 	"time"
 
 	retryablehttp "github.com/hashicorp/go-retryablehttp"
@@ -40,18 +41,19 @@ func New(rawURL string, opts ...Option) (*Client, error) {
 		logger:      slog.Default(),
 	}
 
-	hadAuth := false
+	var firstAuthType reflect.Type
 	for _, opt := range opts {
-		prev := c.auth
 		opt(c)
-		if _, isNone := c.auth.(noAuth); !isNone && prev != c.auth {
-			if hadAuth {
+		switch a := c.auth.(type) {
+		case noAuth:
+			_ = a // explicitly skipping noAuth — only happens before any auth option fires
+		default:
+			t := reflect.TypeOf(c.auth)
+			if firstAuthType == nil {
+				firstAuthType = t
+			} else if firstAuthType != t {
 				return nil, fmt.Errorf("remetric: %w", ErrConflictingAuth)
 			}
-			if _, prevWasNone := prev.(noAuth); !prevWasNone {
-				return nil, fmt.Errorf("remetric: %w", ErrConflictingAuth)
-			}
-			hadAuth = true
 		}
 	}
 
@@ -91,10 +93,10 @@ func New(rawURL string, opts ...Option) (*Client, error) {
 // slogLogger adapts *slog.Logger to retryablehttp.LeveledLogger.
 type slogLogger struct{ *slog.Logger }
 
-func (s slogLogger) Error(msg string, kv ...interface{}) { s.Logger.Error(msg, kv...) }
-func (s slogLogger) Warn(msg string, kv ...interface{})  { s.Logger.Warn(msg, kv...) }
-func (s slogLogger) Info(msg string, kv ...interface{})  { s.Logger.Info(msg, kv...) }
-func (s slogLogger) Debug(msg string, kv ...interface{}) { s.Logger.Debug(msg, kv...) }
+func (s slogLogger) Error(msg string, kv ...any) { s.Logger.Error(msg, kv...) }
+func (s slogLogger) Warn(msg string, kv ...any)  { s.Logger.Warn(msg, kv...) }
+func (s slogLogger) Info(msg string, kv ...any)  { s.Logger.Info(msg, kv...) }
+func (s slogLogger) Debug(msg string, kv ...any) { s.Logger.Debug(msg, kv...) }
 
 // do executes an HTTP request against the Prometheus base URL, honouring
 // auth, user-agent, max-in-flight, retries, and ctx.
