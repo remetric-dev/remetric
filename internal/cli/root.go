@@ -82,8 +82,26 @@ func (e *flagError) Unwrap() error { return e.err }
 
 func newRootCmd(version string) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:           "remetric",
-		Short:         "Find waste in Prometheus, Grafana & Loki stacks.",
+		Use:   "remetric",
+		Short: "Find waste in Prometheus, Grafana & Loki stacks.",
+		Long: `remetric is a read-only doctor for self-hosted Prometheus stacks.
+
+It connects to a Prometheus server and produces a ranked, actionable
+list of cardinality and label-pattern problems with suggested fixes.
+
+Configuration precedence (lowest → highest):
+  defaults → config file → environment → flags
+
+Environment variables use the REMETRIC_ prefix, e.g.:
+  REMETRIC_PROMETHEUS_URL    --prometheus
+  REMETRIC_PROMETHEUS_TOKEN  --prom-token
+
+Authentication options:
+  --prom-token TOK          bearer token (Authorization: Bearer TOK)
+  --prom-basic-auth U:P     HTTP basic auth
+  --prom-tls-skip-verify    accept self-signed TLS (use with care)
+
+Supported Prometheus versions: 2.30 and newer.`,
 		SilenceUsage:  true,
 		SilenceErrors: false,
 		Version:       version,
