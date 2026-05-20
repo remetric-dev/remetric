@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Andrei Taranik
 
+// Package cardinality identifies high-cardinality metrics and attributes them
+// to the label that drives the explosion.
 package cardinality
 
 import (
@@ -10,6 +12,7 @@ import (
 
 	"github.com/remetric-dev/remetric/internal/analyzers"
 	"github.com/remetric-dev/remetric/internal/findings"
+	"github.com/remetric-dev/remetric/internal/scoring"
 )
 
 // Analyzer identifies high-cardinality metrics and attributes them
@@ -47,7 +50,7 @@ func (a *Analyzer) Analyze(ctx context.Context, d analyzers.Deps) ([]findings.Fi
 			continue
 		}
 
-		sev := severity(m.Value, head)
+		sev := scoring.CardinalitySeverity(m.Value, head)
 		if sev == findings.SeverityLow {
 			continue
 		}
