@@ -22,9 +22,25 @@ func newCardinalitySuspiciousCmd() *cobra.Command {
 		minSeverity string
 	)
 	cmd := &cobra.Command{
-		Use:     "suspicious",
-		Short:   "Flag labels whose names match well-known unbounded-identifier patterns.",
-		Example: "  remetric cardinality suspicious --prometheus http://localhost:9090",
+		Use:   "suspicious",
+		Short: "Flag labels whose names match well-known unbounded-identifier patterns.",
+		Long: `Scans the TSDB top-N labels for names that look like unbounded
+identifiers — UUIDs, request paths, trace/span ids, email-like values,
+session tokens, and anything ending in _id.
+
+Severity scales with the number of unique values:
+  Critical: >5,000   High: >1,000   Medium: >100   Low: otherwise
+
+Operational labels (cluster, namespace, job, instance, region,
+environment) are explicitly ignored even when high-cardinality.`,
+		Example: `  # Default scan
+  remetric cardinality suspicious --prometheus http://localhost:9090
+
+  # Include low-severity matches
+  remetric cardinality suspicious --prometheus http://localhost:9090 --min-severity low
+
+  # JSON output for CI
+  remetric cardinality suspicious --prometheus http://localhost:9090 --output json`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
 			cfg := configFrom(ctx)
