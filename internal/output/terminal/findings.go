@@ -2,6 +2,7 @@ package terminal
 
 import (
 	"fmt"
+	"io"
 	"sort"
 	"strings"
 
@@ -49,24 +50,44 @@ func (r *Renderer) RenderFindings(fs []findings.Finding) error {
 		if f.Severity != findings.SeverityCritical && f.Severity != findings.SeverityHigh {
 			continue
 		}
-		writeFixBlock(r, f)
+		if err := writeFixBlock(r, f); err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
-func writeFixBlock(r *Renderer, f findings.Finding) {
-	tag := "[" + f.Severity.String() + "]"
-	tag = r.st.severity(f.Severity).Render(tag)
-	fmt.Fprintf(r.w, "\n%s %s  ·  %s has %d unique values\n", tag, f.Metric, f.Evidence.Label, f.Evidence.UniqueValues)
+func writeFixBlock(r *Renderer, f findings.Finding) error {
+	tag := r.st.severity(f.Severity).Render("[" + f.Severity.String() + "]")
+	w := &errWriter{w: r.w}
+	w.printf("\n%s %s  ·  %s has %d unique values\n", tag, f.Metric, f.Evidence.Label, f.Evidence.UniqueValues)
 	if len(f.Evidence.SampleValues) > 0 {
-		fmt.Fprintf(r.w, "Sample: %s\n", strings.Join(f.Evidence.SampleValues, ", "))
+		w.printf("Sample: %s\n", strings.Join(f.Evidence.SampleValues, ", "))
 	}
-	fmt.Fprintf(r.w, "Estimated reduction (upper bound): %s series\n", fmtInt(f.Impact.SeriesReduction))
+	w.printf("Estimated reduction (upper bound): %s series\n", fmtInt(f.Impact.SeriesReduction))
 	if f.Fix.Config != "" {
-		fmt.Fprintln(r.w, "\nSuggested fix (Prometheus scrape config):")
+		w.printf("\nSuggested fix (Prometheus scrape config):\n")
 		for _, line := range strings.Split(strings.TrimRight(f.Fix.Config, "\n"), "\n") {
-			fmt.Fprintf(r.w, "    %s\n", line)
+			w.printf("    %s\n", line)
 		}
+	}
+	return w.err
+}
+
+// errWriter wraps an io.Writer and remembers the first error. Subsequent
+// printf calls become no-ops, so callers only check err once at the end.
+type errWriter struct {
+	w   io.Writer
+	err error
+}
+
+func (e *errWriter) printf(format string, args ...any) {
+	if e.err != nil {
+		return
+	}
+	_, err := fmt.Fprintf(e.w, format, args...)
+	if err != nil {
+		e.err = err
 	}
 }
 
