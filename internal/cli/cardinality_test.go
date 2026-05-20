@@ -5,6 +5,7 @@ package cli_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -80,7 +81,7 @@ func TestCardinalityTop_Limit(t *testing.T) {
 	if code != 0 {
 		t.Errorf("exit = %d, want 0", code)
 	}
-	if !strings.Contains(out.String(), "No cardinality findings") {
+	if !strings.Contains(out.String(), "No high-cardinality metrics") {
 		t.Errorf("--limit 0 should produce empty result; got:\n%s", out.String())
 	}
 }
@@ -121,6 +122,60 @@ func TestCardinalityTop_JSONOutput(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), `"findings"`) {
 		t.Errorf("expected JSON findings envelope, got:\n%s", out.String())
+	}
+}
+
+func TestCardinalityTop_AllFiltered_ShowsHint(t *testing.T) {
+	// Fixture: TSDB returns 1 metric small enough that severity is Medium (>25k).
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case strings.HasPrefix(r.URL.Path, "/api/v1/status/tsdb"):
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"status": "success",
+				"data": map[string]any{
+					"headStats": map[string]any{"numSeries": 10_000_000},
+					"seriesCountByMetricName": []map[string]any{
+						// 30_000 series → Medium severity (>25k).
+						{"name": "tiny_metric", "value": 30_000},
+					},
+				},
+			})
+		case r.URL.Path == "/api/v1/labels":
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"status": "success",
+				"data":   []string{"label_a"},
+			})
+		case r.URL.Path == "/api/v1/label/label_a/values":
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"status": "success",
+				"data":   []string{"v1", "v2", "v3"},
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer ts.Close()
+
+	var out bytes.Buffer
+	code := cli.ExecuteWith(cli.Args{
+		Version: "test",
+		Args: []string{
+			"cardinality", "top",
+			"--prometheus", ts.URL,
+			"--min-severity", "high",
+		},
+		Stdout: &out,
+		Stderr: &out,
+	})
+	if code != 0 {
+		t.Fatalf("non-zero exit: %d\n%s", code, out.String())
+	}
+	body := out.String()
+	for _, want := range []string{"Filtered 1", "cardinality offenders", "medium", "--min-severity low"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("expected %q in output:\n%s", want, body)
+		}
 	}
 }
 
