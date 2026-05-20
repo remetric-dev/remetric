@@ -1,0 +1,32 @@
+# Claude Code workspace — local config, prompts, worktrees
+.claude/*
+# ...but project-scoped skills are shared with all contributors and agents
+!.claude/skills/
+
+# Superpowers planning/spec artifacts — local to this contributor
+docs/superpowers/
+
+# Build output
+/bin/
+*.test
+*.out
+coverage.txt
+
+# Go workspace files
+go.work
+go.work.sum
+
+# IDE / editor
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS noise
+.DS_Store
+Thumbs.db
+
+# Local environment overrides
+.env
+.env.local
+*.local.yaml
