@@ -6,9 +6,10 @@ Re-metric your stack — find waste in Prometheus, Grafana & Loki.
 Prometheus server and it prints a ranked, actionable list of cardinality
 problems with suggested `metric_relabel_configs` fixes.
 
-> Status: **alpha (Phase 2 of v0.1)** — cardinality analyzer + label-pattern
-> analyzer + JSON output are wired up. Grafana integration, alert hygiene,
-> unused-metric detection, and HTML/Markdown reports come in later phases.
+> Status: **alpha (Phase 3 of v0.1)** — cardinality, label-pattern, and
+> unused-metric analyzers are wired up. JSON output + Grafana integration +
+> unified `remetric scan` command shipped. Alert hygiene and HTML/Markdown
+> reports come in later phases.
 
 ## Install
 
@@ -144,14 +145,15 @@ Global flags (subset; see `--help` for the full list):
 - `--no-color` — Disable colored output (`NO_COLOR` env also respected).
 - `--verbose` — Debug-level slog logging on stderr.
 
-## What does Phase 2 *not* do yet?
+## What's still missing in v0.1
 
-- No HTML / Markdown output.
-- No Grafana integration; we can't tell you which metrics are unused.
+- No alert hygiene analyzer (never-fired / always-firing alerts) — Phase 4.
+- No HTML / Markdown output — Phase 4.
+- No dashboard sprawl analyzer — Phase 5.
 - No `--fail-on` flag for CI integration.
-- No goreleaser / Docker image / Homebrew tap.
+- No Homebrew tap (binaries + Docker image already ship; see Install above).
 
-These ship in later phases (see `.claude/spec.md`).
+These land in subsequent phases (see `.claude/spec.md`).
 
 ## Building from source
 
