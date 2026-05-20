@@ -34,6 +34,29 @@ func (c *Client) LabelNamesForMetric(ctx context.Context, metric string) ([]stri
 	return out, nil
 }
 
+// MetricNamesWithLabel returns the set of metric names with at least
+// one series that carries label. Implemented via:
+//
+//	GET /api/v1/label/__name__/values?match[]={<label>!=""}
+//
+// An empty label returns ErrInvalidArgument.
+func (c *Client) MetricNamesWithLabel(ctx context.Context, label string) ([]string, error) {
+	if label == "" {
+		return nil, fmt.Errorf("remetric: %w: empty label", ErrInvalidArgument)
+	}
+	q := url.Values{}
+	q.Add("match[]", fmt.Sprintf(`{%s!=""}`, label))
+	body, err := c.do(ctx, http.MethodGet, "/api/v1/label/__name__/values?"+q.Encode(), nil)
+	if err != nil {
+		return nil, err
+	}
+	var env envelope[[]string]
+	if err := json.Unmarshal(body, &env); err != nil {
+		return nil, fmt.Errorf("remetric: parse metric names: %w", err)
+	}
+	return env.Data, nil
+}
+
 // LabelValues returns the values for label, optionally restricted by one or
 // more PromQL selectors (e.g. `{__name__="istio_requests_total"}`).
 func (c *Client) LabelValues(ctx context.Context, label string, matchers ...string) ([]string, error) {

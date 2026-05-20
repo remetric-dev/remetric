@@ -5,11 +5,14 @@ package prometheus_test
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
 
 	prom "github.com/remetric-dev/remetric/internal/prometheus"
 )
@@ -98,6 +101,45 @@ func TestClient_LabelValues_NoMatchers(t *testing.T) {
 	}
 	if requestPath != "/api/v1/label/job/values" {
 		t.Errorf("request path = %q, want bare /api/v1/label/job/values without query string", requestPath)
+	}
+}
+
+func TestMetricNamesWithLabel(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v1/label/__name__/values" {
+			t.Fatalf("unexpected path %q", r.URL.Path)
+		}
+		if got := r.URL.Query().Get("match[]"); got != `{user_id!=""}` {
+			t.Fatalf("match[] = %q, want %q", got, `{user_id!=""}`)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"status":"success","data":["http_requests_total","istio_requests_total"]}`))
+	}))
+	defer ts.Close()
+
+	c, err := prom.New(ts.URL)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+
+	got, err := c.MetricNamesWithLabel(context.Background(), "user_id")
+	if err != nil {
+		t.Fatalf("MetricNamesWithLabel: %v", err)
+	}
+	want := []string{"http_requests_total", "istio_requests_total"}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("MetricNamesWithLabel mismatch (-want +got):\n%s", diff)
+	}
+}
+
+func TestMetricNamesWithLabel_EmptyLabel(t *testing.T) {
+	c, err := prom.New("http://example.invalid")
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	_, err = c.MetricNamesWithLabel(context.Background(), "")
+	if !errors.Is(err, prom.ErrInvalidArgument) {
+		t.Errorf("error = %v, want ErrInvalidArgument", err)
 	}
 }
 
