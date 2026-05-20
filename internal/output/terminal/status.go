@@ -5,34 +5,16 @@ package terminal
 
 import (
 	"time"
+
+	"github.com/remetric-dev/remetric/internal/findings"
 )
 
-// DoctorReport holds the result of the `remetric doctor` command for rendering.
-type DoctorReport struct {
-	PrometheusURL    string
-	Reachable        bool
-	Version          string
-	VersionOK        bool
-	AuthMethod       string
-	TSDBStatsOK      bool
-	NumSeries        int64
-	NumMetrics       int64
-	StorageRetention string
-	Elapsed          time.Duration
-	Errors           []DoctorError
-}
-
-// DoctorError describes a single failed check.
-type DoctorError struct {
-	Check string
-	Err   error
-}
-
 // RenderDoctor writes a human-friendly status block.
-func (r *Renderer) RenderDoctor(rep DoctorReport) error {
+func (r *Renderer) RenderDoctor(rep findings.DoctorReport) error {
 	w := &errWriter{w: r.w}
 	header := r.st.header.Render("remetric doctor")
-	w.printf("%s — %s (in %s)\n\n", header, rep.PrometheusURL, rep.Elapsed.Round(time.Millisecond))
+	elapsed := time.Duration(rep.ElapsedMs) * time.Millisecond
+	w.printf("%s — %s (in %s)\n\n", header, rep.PrometheusURL, elapsed)
 
 	mark := func(ok bool) string {
 		if ok {
@@ -63,7 +45,7 @@ func (r *Renderer) RenderDoctor(rep DoctorReport) error {
 	if len(rep.Errors) > 0 {
 		w.printf("\nIssues:\n")
 		for _, e := range rep.Errors {
-			w.printf("  %s %s: %v\n", r.st.warn.Render("·"), e.Check, e.Err)
+			w.printf("  %s %s: %s\n", r.st.warn.Render("·"), e.Check, e.Error)
 		}
 	}
 
