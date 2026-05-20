@@ -112,3 +112,51 @@ func TestSeverity_UnmarshalJSON_Invalid(t *testing.T) {
 		t.Fatalf("Unmarshal(\"nope\") = nil error, want error")
 	}
 }
+
+func TestSeverity_UnmarshalJSON_Null(t *testing.T) {
+	s := SeverityHigh
+	if err := json.Unmarshal([]byte(`null`), &s); err != nil {
+		t.Errorf("Unmarshal(null) error: %v, want nil", err)
+	}
+	if s != SeverityHigh {
+		t.Errorf("Unmarshal(null) modified severity: got %v, want SeverityHigh", s)
+	}
+}
+
+func TestSeverity_UnmarshalJSON_EscapedString(t *testing.T) {
+	// "low" decodes to "low" at the JSON layer.
+	var s Severity
+	if err := json.Unmarshal([]byte(`"low"`), &s); err != nil {
+		t.Fatalf("Unmarshal escaped: %v", err)
+	}
+	if s != SeverityLow {
+		t.Errorf("Unmarshal escaped = %v, want SeverityLow", s)
+	}
+}
+
+func TestSeverity_UnmarshalJSON_NonString(t *testing.T) {
+	cases := []string{`123`, `true`, `["low"]`, `{"x":1}`}
+	for _, in := range cases {
+		var s Severity
+		err := json.Unmarshal([]byte(in), &s)
+		if err == nil {
+			t.Errorf("Unmarshal(%s) = nil error, want error", in)
+		}
+	}
+}
+
+func TestSeverity_RoundTrip(t *testing.T) {
+	for _, sev := range []Severity{SeverityLow, SeverityMedium, SeverityHigh, SeverityCritical} {
+		b, err := json.Marshal(sev)
+		if err != nil {
+			t.Fatalf("Marshal(%v): %v", sev, err)
+		}
+		var got Severity
+		if err := json.Unmarshal(b, &got); err != nil {
+			t.Fatalf("Unmarshal(%s): %v", b, err)
+		}
+		if got != sev {
+			t.Errorf("round-trip(%v) = %v", sev, got)
+		}
+	}
+}
