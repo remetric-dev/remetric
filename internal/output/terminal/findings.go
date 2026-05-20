@@ -63,7 +63,11 @@ func (r *Renderer) RenderFindings(fs []findings.Finding) error {
 func writeFixBlock(r *Renderer, f findings.Finding) error {
 	tag := r.st.severity(f.Severity).Render("[" + f.Severity.String() + "]")
 	w := &errWriter{w: r.w}
-	w.printf("\n%s %s  ·  %s has %d unique values\n", tag, f.Metric, f.Evidence.Label, f.Evidence.UniqueValues)
+	if f.Metric != "" {
+		w.printf("\n%s %s  ·  %s has %s unique values\n", tag, f.Metric, f.Evidence.Label, fmtInt(int64(f.Evidence.UniqueValues)))
+	} else {
+		w.printf("\n%s label '%s' has %s unique values\n", tag, f.Evidence.Label, fmtInt(int64(f.Evidence.UniqueValues)))
+	}
 	if len(f.Evidence.SampleValues) > 0 {
 		w.printf("Sample: %s\n", strings.Join(f.Evidence.SampleValues, ", "))
 	}
