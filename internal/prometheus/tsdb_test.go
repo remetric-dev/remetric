@@ -80,6 +80,17 @@ func TestClient_TSDBStats_Parses(t *testing.T) {
 	}
 }
 
+func TestClient_Ping_Unhealthy(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}))
+	defer srv.Close()
+	c, _ := prom.New(srv.URL)
+	if err := c.Ping(context.Background()); err == nil {
+		t.Errorf("Ping against 503 returned nil, want error")
+	}
+}
+
 func TestClient_BuildInfo_Auth401Wraps(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(401)
