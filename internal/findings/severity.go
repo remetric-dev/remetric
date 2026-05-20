@@ -38,6 +38,10 @@ func (s Severity) String() string {
 	}
 }
 
+// lower returns the canonical lower-case form of s, used as JSON map
+// keys and `MarshalJSON` output.
+func (s Severity) lower() string { return strings.ToLower(s.String()) }
+
 // ParseSeverity parses a case-insensitive severity name.
 func ParseSeverity(s string) (Severity, error) {
 	switch strings.ToLower(strings.TrimSpace(s)) {
@@ -56,7 +60,7 @@ func ParseSeverity(s string) (Severity, error) {
 // MarshalJSON encodes the severity as a lower-case string,
 // matching the JSON schema in the spec (§5.5).
 func (s Severity) MarshalJSON() ([]byte, error) {
-	return json.Marshal(strings.ToLower(s.String()))
+	return json.Marshal(s.lower())
 }
 
 // UnmarshalJSON accepts a case-insensitive severity name.
