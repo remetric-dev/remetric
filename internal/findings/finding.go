@@ -46,6 +46,12 @@ type Fix struct {
 }
 
 // Impact is the estimated effect of applying Fix.
+//
+// SeriesReduction, Percentage, and Description-style fields render even
+// when zero — analyzers always populate them, and explicit zeros are
+// part of the wire contract. MemoryReductionBytes and EstimationMethod
+// use omitempty because they are optional metadata that not every
+// analyzer can compute.
 type Impact struct {
 	SeriesReduction      int64   `json:"series_reduction"`
 	Percentage           float64 `json:"percentage"`

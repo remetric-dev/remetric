@@ -110,3 +110,22 @@ func TestFinding_OmitsEmpty(t *testing.T) {
 		}
 	}
 }
+
+func TestFinding_AlwaysEmitsDescription(t *testing.T) {
+	// Description has no omitempty; an empty value must still appear in
+	// the JSON to signal "no observation available" rather than being silently dropped.
+	f := Finding{
+		ID:       "min-002",
+		Severity: SeverityLow,
+		Category: CategoryCardinality,
+		Title:    "minimal",
+		// Evidence intentionally zero-valued.
+	}
+	b, err := json.Marshal(f)
+	if err != nil {
+		t.Fatalf("Marshal: %v", err)
+	}
+	if !strings.Contains(string(b), `"description":""`) {
+		t.Errorf("expected `description` field in output, got: %s", b)
+	}
+}
