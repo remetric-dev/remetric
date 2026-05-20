@@ -55,7 +55,7 @@ dockers:
     image_templates:
       - "ghcr.io/remetric-dev/remetric:{{ .Version }}-amd64"
       - "ghcr.io/remetric-dev/remetric:latest-amd64"
-    dockerfile: Dockerfile
+    dockerfile: Dockerfile.release
     use: buildx
     goarch: amd64
     build_flag_templates:
@@ -67,7 +67,7 @@ dockers:
     image_templates:
       - "ghcr.io/remetric-dev/remetric:{{ .Version }}-arm64"
       - "ghcr.io/remetric-dev/remetric:latest-arm64"
-    dockerfile: Dockerfile
+    dockerfile: Dockerfile.release
     use: buildx
     goarch: arm64
     build_flag_templates:
