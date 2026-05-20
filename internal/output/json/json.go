@@ -30,7 +30,7 @@ func (r *Renderer) RenderFindings(fs []findings.Finding) error {
 		Findings []findings.Finding `json:"findings"`
 		Summary  findings.Summary   `json:"summary"`
 	}{
-		Findings: rep.Findings,
+		Findings: fs,
 		Summary:  rep.Summary,
 	}
 	return r.encode(envelope)

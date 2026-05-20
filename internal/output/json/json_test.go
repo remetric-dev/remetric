@@ -93,6 +93,50 @@ func TestRenderLabelInventory_Golden(t *testing.T) {
 	checkGolden(t, "inventory.json", buf.Bytes())
 }
 
+func TestRenderFindings_NilInput(t *testing.T) {
+	var buf bytes.Buffer
+	if err := New(&buf).RenderFindings(nil); err != nil {
+		t.Fatalf("RenderFindings(nil): %v", err)
+	}
+	if !bytes.Contains(buf.Bytes(), []byte(`"findings": []`)) {
+		t.Errorf("expected empty findings array, got:\n%s", buf.String())
+	}
+}
+
+func TestRenderReport_Nil(t *testing.T) {
+	var buf bytes.Buffer
+	err := New(&buf).RenderReport(nil)
+	if err == nil {
+		t.Errorf("RenderReport(nil) = nil error, want error")
+	}
+}
+
+func TestRenderReport_NilFindings(t *testing.T) {
+	rep := &findings.Report{
+		Version:   "0.2.0",
+		ScannedAt: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		Summary:   findings.Summary{BySeverity: map[string]int{}},
+	}
+	var buf bytes.Buffer
+	if err := New(&buf).RenderReport(rep); err != nil {
+		t.Fatalf("RenderReport: %v", err)
+	}
+	if !bytes.Contains(buf.Bytes(), []byte(`"findings": []`)) {
+		t.Errorf("expected empty findings array, got:\n%s", buf.String())
+	}
+}
+
+func TestRenderLabelInventory_NilLabels(t *testing.T) {
+	inv := LabelInventory{Metric: "foo"}
+	var buf bytes.Buffer
+	if err := New(&buf).RenderLabelInventory(inv); err != nil {
+		t.Fatalf("RenderLabelInventory: %v", err)
+	}
+	if !bytes.Contains(buf.Bytes(), []byte(`"labels": []`)) {
+		t.Errorf("expected empty labels array, got:\n%s", buf.String())
+	}
+}
+
 func checkGolden(t *testing.T, name string, got []byte) {
 	t.Helper()
 	path := goldenPath(name)
