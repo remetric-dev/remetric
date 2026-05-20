@@ -14,6 +14,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/remetric-dev/remetric/internal/config"
+	"github.com/remetric-dev/remetric/internal/findings"
 	"github.com/remetric-dev/remetric/internal/output/terminal"
 	prom "github.com/remetric-dev/remetric/internal/prometheus"
 )
@@ -63,32 +64,32 @@ func runDoctor(cmd *cobra.Command, _ []string) error {
 		return &exitError{code: 2, err: err}
 	}
 
-	rep := terminal.DoctorReport{
+	rep := findings.DoctorReport{
 		PrometheusURL: cfg.Prometheus.URL,
 		AuthMethod:    authMethodFor(cfg),
 	}
 
 	if err := client.Ping(ctx); err != nil {
-		rep.Errors = append(rep.Errors, terminal.DoctorError{Check: "reachability", Err: err})
+		rep.Errors = append(rep.Errors, findings.DoctorError{Check: "reachability", Error: err.Error()})
 	} else {
 		rep.Reachable = true
 	}
 
 	if bi, err := client.BuildInfo(ctx); err != nil {
-		rep.Errors = append(rep.Errors, terminal.DoctorError{Check: "buildinfo", Err: err})
+		rep.Errors = append(rep.Errors, findings.DoctorError{Check: "buildinfo", Error: err.Error()})
 	} else {
 		rep.Version = bi.Version
 		rep.VersionOK = compareVersions(bi.Version, minPrometheusVersion) >= 0
 		if !rep.VersionOK {
-			rep.Errors = append(rep.Errors, terminal.DoctorError{
+			rep.Errors = append(rep.Errors, findings.DoctorError{
 				Check: "version",
-				Err:   fmt.Errorf("prometheus %s is below minimum %s", bi.Version, minPrometheusVersion),
+				Error: fmt.Sprintf("prometheus %s is below minimum %s", bi.Version, minPrometheusVersion),
 			})
 		}
 	}
 
 	if stats, err := client.TSDBStats(ctx, 1); err != nil {
-		rep.Errors = append(rep.Errors, terminal.DoctorError{Check: "tsdb_stats", Err: err})
+		rep.Errors = append(rep.Errors, findings.DoctorError{Check: "tsdb_stats", Error: err.Error()})
 	} else {
 		rep.TSDBStatsOK = true
 		rep.NumSeries = stats.HeadStats.NumSeries
@@ -103,7 +104,7 @@ func runDoctor(cmd *cobra.Command, _ []string) error {
 		rep.NumMetrics = int64(len(names))
 	}
 
-	rep.Elapsed = time.Since(start)
+	rep.ElapsedMs = time.Since(start).Milliseconds()
 
 	r := terminal.New(cmd.OutOrStdout(), terminal.WithColor(!cfg.NoColor))
 	if rerr := r.RenderDoctor(rep); rerr != nil {
