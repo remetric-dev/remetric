@@ -1,0 +1,26 @@
+{
+  "uid": "node-overview",
+  "title": "Node Overview",
+  "schemaVersion": 36,
+  "version": 1,
+  "panels": [
+    {
+      "id": 1,
+      "type": "graph",
+      "title": "CPU rate",
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "targets": [
+        {"expr": "rate(node_cpu_seconds_total{mode=\"user\"}[5m])", "refId": "A"}
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Filesystem available",
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "targets": [
+        {"expr": "node_filesystem_avail_bytes", "refId": "A"}
+      ]
+    }
+  ]
+}
