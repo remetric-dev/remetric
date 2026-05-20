@@ -9,7 +9,7 @@ LOCAL_PREFIX     := github.com/remetric-dev/remetric
 VERSION          ?= $(shell git describe --tags --dirty --always 2>/dev/null || echo dev)
 LDFLAGS          := -s -w -X main.version=$(VERSION)
 
-.PHONY: help build test test-race fmt vet lint vuln clean e2e-up e2e-down e2e release-check release-snapshot docker-build
+.PHONY: help build test test-race fmt vet lint vuln clean e2e-up e2e-down e2e release-check release-snapshot docker-build install-check
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*## / {printf "  %-14s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -64,3 +64,10 @@ DOCKER_IMAGE ?= remetric:dev
 
 docker-build: ## Build docker image (single-arch, host CPU)
 	docker build --build-arg VERSION=$(VERSION) -t $(DOCKER_IMAGE) .
+
+install-check: ## Lint install.sh with shellcheck if installed
+	@if command -v shellcheck >/dev/null 2>&1; then \
+	  shellcheck install.sh; \
+	else \
+	  echo ">> shellcheck not found, skipping (install via: brew install shellcheck)"; \
+	fi
