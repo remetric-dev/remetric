@@ -10,12 +10,14 @@ import (
 	"time"
 
 	"github.com/remetric-dev/remetric/internal/findings"
+	"github.com/remetric-dev/remetric/internal/grafana"
 	"github.com/remetric-dev/remetric/internal/prometheus"
 )
 
 // Deps groups the dependencies passed to an analyzer at Analyze time.
 type Deps struct {
 	Prom   *prometheus.Client
+	Graf   *grafana.Client // may be nil — analyzers that need Grafana skip when absent
 	Logger *slog.Logger
 	Limits Limits
 }
