@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Andrei Taranik
+
 //go:build e2e
 
 // Package e2e contains end-to-end smoke tests requiring a live Prometheus

@@ -34,3 +34,14 @@ Remetric is a static-binary doctor for self-hosted Prometheus/Grafana/Loki stack
 - Read-only: never modify the target Prometheus or Grafana.
 - Bounded concurrency to the target (default 5 in-flight requests; configurable).
 - All env vars use the `REMETRIC_` prefix (the spec's `TSDB_*` examples are legacy — ignore them).
+
+## License headers
+
+Apache License 2.0 (see [LICENSE](LICENSE)). All hand-written `.go` files carry SPDX short-form header on the first two lines:
+
+```
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Andrei Taranik
+```
+
+Blank line separates header from `package` declaration (or package doc comment, which must remain immediately adjacent to `package`). New `.go` files include this header verbatim — same year, same name, same SPDX identifier. Auto-generated `.go` files (e.g. oapi-codegen output) are exempt.

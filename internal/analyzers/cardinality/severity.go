@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Andrei Taranik
+
 // Package cardinality identifies high-cardinality metrics and attributes them
 // to the label that drives the explosion.
 package cardinality
