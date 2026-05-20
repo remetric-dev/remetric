@@ -94,6 +94,31 @@ remetric cardinality labels \
 Both commands accept `--output json` for machine-readable output (schema in
 `.claude/spec.md` §5.5).
 
+## Unused-metric detection (Phase 3)
+
+Diff ingested metrics against everything Grafana, alert rules, and recording
+rules actually reference. Anything left over is a candidate to drop.
+
+```bash
+remetric unused metrics \
+  --prometheus http://localhost:9090 \
+  --grafana http://localhost:3000
+```
+
+`--grafana-token TOKEN` uses a bearer (service-account API key);
+`--grafana-basic-auth user:pass` for basic auth.
+
+Run every analyzer in one shot:
+
+```bash
+remetric scan \
+  --prometheus http://localhost:9090 \
+  --grafana http://localhost:3000
+```
+
+`scan` emits a `findings.Report` (see spec §5.5) — combine with `--output json`
+for CI.
+
 ## Commands
 
 | Command                            | What it does                                                |
@@ -102,11 +127,17 @@ Both commands accept `--output json` for machine-readable output (schema in
 | `remetric cardinality top`         | List the worst-offending high-cardinality metric/label pairs|
 | `remetric cardinality labels`      | Per-metric label inventory (unique counts + sample values)  |
 | `remetric cardinality suspicious`  | Flag labels matching unbounded-identifier patterns          |
+| `remetric unused metrics`          | Ingested ∖ used metrics (needs Grafana for dashboard coverage)|
+| `remetric scan`                    | Run every available analyzer, emit a unified Report         |
 
 Global flags (subset; see `--help` for the full list):
 
 - `--prometheus URL` — Prometheus base URL. Env: `REMETRIC_PROMETHEUS_URL`.
 - `--prom-token TOK` — Bearer token. Env: `REMETRIC_PROMETHEUS_TOKEN`.
+- `--grafana URL` — Grafana base URL. Env: `REMETRIC_GRAFANA_URL`.
+- `--grafana-token TOK` — Grafana service-account API key. Env: `REMETRIC_GRAFANA_TOKEN`.
+- `--grafana-basic-auth USER:PASS` — Basic auth for Grafana.
+- `--grafana-tls-skip-verify` — Skip TLS verification for Grafana.
 - `--prom-basic-auth USER:PASS` — Basic auth.
 - `--prom-max-in-flight N` — Concurrency cap (default 5).
 - `--output FORMAT` — `terminal` (default) or `json`.

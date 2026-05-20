@@ -67,3 +67,31 @@ func TestLabelPatternSeverity(t *testing.T) {
 		})
 	}
 }
+
+func TestUnusedMetricSeverity(t *testing.T) {
+	cases := []struct {
+		name  string
+		count int64
+		want  findings.Severity
+	}{
+		{"critical", 200_000, findings.SeverityCritical},
+		{"critical_boundary", 100_001, findings.SeverityCritical},
+		{"high_at_100k", 100_000, findings.SeverityHigh},
+		{"high", 60_000, findings.SeverityHigh},
+		{"high_boundary", 25_001, findings.SeverityHigh},
+		{"medium_at_25k", 25_000, findings.SeverityMedium},
+		{"medium", 10_000, findings.SeverityMedium},
+		{"medium_boundary", 5_001, findings.SeverityMedium},
+		{"low_at_5k", 5_000, findings.SeverityLow},
+		{"low", 100, findings.SeverityLow},
+		{"low_zero", 0, findings.SeverityLow},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := UnusedMetricSeverity(c.count)
+			if got != c.want {
+				t.Errorf("UnusedMetricSeverity(%d) = %v, want %v", c.count, got, c.want)
+			}
+		})
+	}
+}
