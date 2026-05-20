@@ -3,7 +3,15 @@
 
 package cli
 
-import "github.com/remetric-dev/remetric/internal/findings"
+import (
+	"fmt"
+	"io"
+	"strings"
+
+	"github.com/remetric-dev/remetric/internal/config"
+	"github.com/remetric-dev/remetric/internal/findings"
+	outjson "github.com/remetric-dev/remetric/internal/output/json"
+)
 
 // emptyCopy bundles the analyzer-specific text used when a command
 // produces no findings to render.
@@ -44,4 +52,55 @@ func filterAtLeast(fs []findings.Finding, min findings.Severity) []findings.Find
 		}
 	}
 	return out
+}
+
+// renderEmpty writes the appropriate empty-state output for cfg.Output.
+//
+// When totalCount == 0 the analyzer produced no findings at all — show
+// copy.NoResults plus a doctor hint.
+//
+// When totalCount > 0 but the slice handed to the renderer is empty,
+// every finding was below minSev — show a filter hint with the
+// severity distribution and an actionable `--min-severity` suggestion.
+//
+// JSON output ignores the empty-state copy entirely and emits the
+// standard `{"findings": [], "summary": ...}` envelope so machine
+// consumers see a stable wire contract.
+func renderEmpty(cfg *config.Config, w io.Writer, c emptyCopy,
+	minSev findings.Severity, totalCount int, bySev map[findings.Severity]int,
+) error {
+	switch cfg.Output {
+	case "", "terminal":
+		if totalCount == 0 {
+			_, err := fmt.Fprintln(w, c.NoResults+" Run `remetric doctor` to verify the connection.")
+			return err
+		}
+		_, err := fmt.Fprintf(w,
+			"Filtered %d %s below %s severity: %s. Try `--min-severity low` to see them all.\n",
+			totalCount, c.Subject, strings.ToLower(minSev.String()), formatSeverityCounts(bySev))
+		return err
+	case "json":
+		return outjson.New(w).RenderFindings(nil)
+	default:
+		return fmt.Errorf("unsupported --output %q (want terminal|json)", cfg.Output)
+	}
+}
+
+// formatSeverityCounts renders "3 low, 2 medium" from a tally map.
+// Order: low → medium → high → critical. Zero counts skipped.
+func formatSeverityCounts(bySev map[findings.Severity]int) string {
+	order := []findings.Severity{
+		findings.SeverityLow, findings.SeverityMedium,
+		findings.SeverityHigh, findings.SeverityCritical,
+	}
+	parts := make([]string, 0, len(order))
+	for _, s := range order {
+		if n := bySev[s]; n > 0 {
+			parts = append(parts, fmt.Sprintf("%d %s", n, strings.ToLower(s.String())))
+		}
+	}
+	if len(parts) == 0 {
+		return "none"
+	}
+	return strings.Join(parts, ", ")
 }
