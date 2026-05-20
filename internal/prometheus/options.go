@@ -24,7 +24,8 @@ func WithTLSSkipVerify(skip bool) Option {
 	return func(c *Client) { c.tlsSkipVerify = skip }
 }
 
-// WithTimeout caps the duration of a single HTTP request (incl. retries).
+// WithTimeout sets the per-attempt HTTP timeout (http.Client.Timeout).
+// Overall operation deadlines should be enforced via the request context.
 func WithTimeout(d time.Duration) Option {
 	return func(c *Client) { c.timeout = d }
 }
@@ -41,5 +42,11 @@ func WithUserAgent(ua string) Option {
 
 // WithLogger installs a slog logger; required for retry decisions and warnings.
 func WithLogger(l *slog.Logger) Option {
-	return func(c *Client) { c.logger = l }
+	return func(c *Client) {
+		if l == nil {
+			c.logger = slog.Default()
+			return
+		}
+		c.logger = l
+	}
 }
