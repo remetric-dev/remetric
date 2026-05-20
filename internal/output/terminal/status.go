@@ -1,7 +1,6 @@
 package terminal
 
 import (
-	"fmt"
 	"time"
 )
 
@@ -26,8 +25,9 @@ type DoctorError struct {
 
 // RenderDoctor writes a human-friendly status block.
 func (r *Renderer) RenderDoctor(rep DoctorReport) error {
+	w := &errWriter{w: r.w}
 	header := r.st.header.Render("remetric doctor")
-	fmt.Fprintf(r.w, "%s — %s (in %s)\n\n", header, rep.PrometheusURL, rep.Elapsed.Round(time.Millisecond))
+	w.printf("%s — %s (in %s)\n\n", header, rep.PrometheusURL, rep.Elapsed.Round(time.Millisecond))
 
 	mark := func(ok bool) string {
 		if ok {
@@ -36,25 +36,25 @@ func (r *Renderer) RenderDoctor(rep DoctorReport) error {
 		return r.st.warn.Render("[FAIL]")
 	}
 
-	fmt.Fprintf(r.w, "%s reachable\n", mark(rep.Reachable))
+	w.printf("%s reachable\n", mark(rep.Reachable))
 	if rep.Version != "" {
 		label := "version " + rep.Version
 		if !rep.VersionOK {
 			label += " (below minimum 2.30)"
 		}
-		fmt.Fprintf(r.w, "%s %s\n", mark(rep.VersionOK), label)
+		w.printf("%s %s\n", mark(rep.VersionOK), label)
 	}
-	fmt.Fprintf(r.w, "%s tsdb stats accessible (auth: %s)\n", mark(rep.TSDBStatsOK), rep.AuthMethod)
+	w.printf("%s tsdb stats accessible (auth: %s)\n", mark(rep.TSDBStatsOK), rep.AuthMethod)
 	if rep.NumSeries > 0 {
-		fmt.Fprintf(r.w, "     active series: %s\n", fmtInt(rep.NumSeries))
+		w.printf("     active series: %s\n", fmtInt(rep.NumSeries))
 	}
 
 	if len(rep.Errors) > 0 {
-		fmt.Fprintln(r.w, "\nIssues:")
+		w.printf("\nIssues:\n")
 		for _, e := range rep.Errors {
-			fmt.Fprintf(r.w, "  %s %s: %v\n", r.st.warn.Render("·"), e.Check, e.Err)
+			w.printf("  %s %s: %v\n", r.st.warn.Render("·"), e.Check, e.Err)
 		}
 	}
 
-	return nil
+	return w.err
 }
