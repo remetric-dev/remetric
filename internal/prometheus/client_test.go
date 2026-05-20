@@ -134,3 +134,60 @@ func TestClient_ContextCancellation(t *testing.T) {
 		t.Errorf("do() err = nil, want context deadline exceeded")
 	}
 }
+
+func TestClient_RetriesOn5xx(t *testing.T) {
+	var calls int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if atomic.AddInt32(&calls, 1) < 2 {
+			w.WriteHeader(503)
+			return
+		}
+		w.WriteHeader(200)
+	}))
+	defer srv.Close()
+	c, _ := New(srv.URL)
+	if _, err := c.do(context.Background(), http.MethodGet, "/x", nil); err != nil {
+		t.Fatalf("do err = %v", err)
+	}
+	if atomic.LoadInt32(&calls) < 2 {
+		t.Errorf("calls = %d, want >=2 (retry happened)", calls)
+	}
+}
+
+func TestClient_DoesNotRetryOn401(t *testing.T) {
+	var calls int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&calls, 1)
+		w.WriteHeader(401)
+	}))
+	defer srv.Close()
+	c, _ := New(srv.URL)
+	_, err := c.do(context.Background(), http.MethodGet, "/x", nil)
+	if err == nil || !errors.Is(err, ErrAuth) {
+		t.Errorf("err = %v, want wraps ErrAuth", err)
+	}
+	if n := atomic.LoadInt32(&calls); n != 1 {
+		t.Errorf("calls = %d, want 1 (no retry)", n)
+	}
+}
+
+func TestClient_Retries429WithRetryAfter(t *testing.T) {
+	var calls int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if atomic.AddInt32(&calls, 1) < 2 {
+			w.Header().Set("Retry-After", "1")
+			w.WriteHeader(429)
+			return
+		}
+		w.WriteHeader(200)
+	}))
+	defer srv.Close()
+	c, _ := New(srv.URL)
+	start := time.Now()
+	if _, err := c.do(context.Background(), http.MethodGet, "/x", nil); err != nil {
+		t.Fatalf("do err = %v", err)
+	}
+	if elapsed := time.Since(start); elapsed < 800*time.Millisecond {
+		t.Errorf("elapsed = %v, want >= ~1s (honored Retry-After)", elapsed)
+	}
+}
