@@ -9,7 +9,7 @@ LOCAL_PREFIX     := github.com/remetric-dev/remetric
 VERSION          ?= $(shell git describe --tags --dirty --always 2>/dev/null || echo dev)
 LDFLAGS          := -s -w -X main.version=$(VERSION)
 
-.PHONY: help build test test-race fmt vet lint vuln clean e2e-up e2e-down e2e release-check release-snapshot
+.PHONY: help build test test-race fmt vet lint vuln clean e2e-up e2e-down e2e release-check release-snapshot docker-build
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*## / {printf "  %-14s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -59,3 +59,8 @@ release-check: ## Verify .goreleaser.yml is well-formed
 
 release-snapshot: ## Build cross-platform archives locally (no publish)
 	$(GO) run github.com/goreleaser/goreleaser/v2@$(GORELEASER_VERSION) release --snapshot --clean
+
+DOCKER_IMAGE ?= remetric:dev
+
+docker-build: ## Build docker image (single-arch, host CPU)
+	docker build --build-arg VERSION=$(VERSION) -t $(DOCKER_IMAGE) .
