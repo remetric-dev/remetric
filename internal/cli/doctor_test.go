@@ -100,7 +100,7 @@ func TestDoctor_PopulatesMetricsAndRetention(t *testing.T) {
 		case "/-/healthy":
 			w.WriteHeader(http.StatusOK)
 		case "/api/v1/status/buildinfo":
-			_, _ = w.Write([]byte(`{"status":"success","data":{"version":"2.51.2"}}`))
+			_, _ = w.Write([]byte(`{"status":"success","data":{"version":"2.51.2","revision":"x","goVersion":"go1.22.0"}}`))
 		case "/api/v1/status/tsdb":
 			_, _ = w.Write([]byte(`{"status":"success","data":{"headStats":{"numSeries":1234},"seriesCountByMetricName":[],"labelValueCountByLabelName":[]}}`))
 		case "/api/v1/status/runtimeinfo":
@@ -139,7 +139,7 @@ func TestDoctor_JSONOutput(t *testing.T) {
 		case "/-/healthy":
 			w.WriteHeader(http.StatusOK)
 		case "/api/v1/status/buildinfo":
-			_, _ = w.Write([]byte(`{"status":"success","data":{"version":"2.51.2"}}`))
+			_, _ = w.Write([]byte(`{"status":"success","data":{"version":"2.51.2","revision":"x","goVersion":"go1.22.0"}}`))
 		case "/api/v1/status/tsdb":
 			_, _ = w.Write([]byte(`{"status":"success","data":{"headStats":{"numSeries":1234},"seriesCountByMetricName":[],"labelValueCountByLabelName":[]}}`))
 		case "/api/v1/status/runtimeinfo":

@@ -94,10 +94,14 @@ Severity thresholds (configurable via Phase 3):
 				Logger: loggerFrom(ctx),
 				Limits: analyzers.DefaultLimits(),
 			}
-			all, err := cardinality.New().Analyze(ctx, d)
+			res, err := cardinality.New().Analyze(ctx, d)
 			if err != nil {
 				return &exitError{code: 1, err: err}
 			}
+			for _, w := range res.Warnings {
+				fmt.Fprintf(cmd.ErrOrStderr(), "! warning: %s\n", w)
+			}
+			all := res.Findings
 
 			filtered := filterAtLeast(all, minSev)
 			if len(filtered) == 0 {
