@@ -39,10 +39,10 @@ func NewWithPatterns(sources []string) (*Analyzer, error) {
 func (a *Analyzer) Name() string { return "labelpattern" }
 
 // Analyze implements analyzers.Analyzer.
-func (a *Analyzer) Analyze(ctx context.Context, d analyzers.Deps) ([]findings.Finding, error) {
+func (a *Analyzer) Analyze(ctx context.Context, d analyzers.Deps) (analyzers.Result, error) {
 	stats, err := d.Prom.TSDBStats(ctx, d.Limits.TopMetrics)
 	if err != nil {
-		return nil, fmt.Errorf("labelpattern: tsdb stats: %w", err)
+		return analyzers.Result{}, fmt.Errorf("labelpattern: tsdb stats: %w", err)
 	}
 
 	seriesByMetric := make(map[string]int64, len(stats.SeriesCountByMetricName))
@@ -64,13 +64,13 @@ func (a *Analyzer) Analyze(ctx context.Context, d analyzers.Deps) ([]findings.Fi
 
 		samples, err := d.Prom.LabelValues(ctx, lbl.Name)
 		if err != nil {
-			return nil, fmt.Errorf("labelpattern: sample %q: %w", lbl.Name, err)
+			return analyzers.Result{}, fmt.Errorf("labelpattern: sample %q: %w", lbl.Name, err)
 		}
 
 		// TODO(phase3): aggregate per-label errors instead of fail-fast.
 		metrics, err := d.Prom.MetricNamesWithLabel(ctx, lbl.Name)
 		if err != nil {
-			return nil, fmt.Errorf("labelpattern: metrics for %q: %w", lbl.Name, err)
+			return analyzers.Result{}, fmt.Errorf("labelpattern: metrics for %q: %w", lbl.Name, err)
 		}
 
 		var seriesAffected int64
@@ -84,7 +84,7 @@ func (a *Analyzer) Analyze(ctx context.Context, d analyzers.Deps) ([]findings.Fi
 
 		fixCfg, err := RenderFix(lbl.Name, metrics)
 		if err != nil {
-			return nil, fmt.Errorf("labelpattern: render fix: %w", err)
+			return analyzers.Result{}, fmt.Errorf("labelpattern: render fix: %w", err)
 		}
 
 		out = append(out, findings.Finding{
@@ -114,7 +114,7 @@ func (a *Analyzer) Analyze(ctx context.Context, d analyzers.Deps) ([]findings.Fi
 		return out[i].Evidence.UniqueValues > out[j].Evidence.UniqueValues
 	})
 
-	return out, nil
+	return analyzers.Result{Findings: out}, nil
 }
 
 func sampleValues(values []string, n int) []string {
