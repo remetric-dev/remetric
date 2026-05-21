@@ -88,10 +88,14 @@ recording rule references count toward "used".`,
 				Logger: loggerFrom(ctx),
 				Limits: analyzers.DefaultLimits(),
 			}
-			all, err := unusedmetrics.New().Analyze(ctx, d)
+			res, err := unusedmetrics.New().Analyze(ctx, d)
 			if err != nil {
 				return &exitError{code: 1, err: err}
 			}
+			for _, w := range res.Warnings {
+				fmt.Fprintf(cmd.ErrOrStderr(), "! warning: %s\n", w)
+			}
+			all := res.Findings
 
 			filtered := filterAtLeast(all, minSev)
 			if len(filtered) == 0 {
