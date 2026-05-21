@@ -78,15 +78,15 @@ func TestAnalyzer_DetectsIdSuffix(t *testing.T) {
 		Limits: analyzers.DefaultLimits(),
 	}
 
-	got, err := New().Analyze(context.Background(), d)
+	res, err := New().Analyze(context.Background(), d)
 	if err != nil {
 		t.Fatalf("Analyze: %v", err)
 	}
 
-	if len(got) != 1 {
-		t.Fatalf("got %d findings, want 1: %+v", len(got), got)
+	if len(res.Findings) != 1 {
+		t.Fatalf("got %d findings, want 1: %+v", len(res.Findings), res.Findings)
 	}
-	f := got[0]
+	f := res.Findings[0]
 	if f.Category != findings.CategoryLabelPatterns {
 		t.Errorf("Category = %v, want %v", f.Category, findings.CategoryLabelPatterns)
 	}
@@ -132,7 +132,7 @@ func TestAnalyzer_IgnoresBoundedLabels(t *testing.T) {
 	defer ts.Close()
 
 	c, _ := prometheus.New(ts.URL)
-	got, err := New().Analyze(context.Background(), analyzers.Deps{
+	res, err := New().Analyze(context.Background(), analyzers.Deps{
 		Prom:   c,
 		Logger: slog.Default(),
 		Limits: analyzers.DefaultLimits(),
@@ -140,8 +140,8 @@ func TestAnalyzer_IgnoresBoundedLabels(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Analyze: %v", err)
 	}
-	if len(got) != 0 {
-		t.Errorf("expected 0 findings (bounded labels ignored), got %d: %+v", len(got), got)
+	if len(res.Findings) != 0 {
+		t.Errorf("expected 0 findings (bounded labels ignored), got %d: %+v", len(res.Findings), res.Findings)
 	}
 }
 
@@ -177,7 +177,7 @@ func TestAnalyzer_SortsBySeverityThenUnique(t *testing.T) {
 	defer ts.Close()
 
 	c, _ := prometheus.New(ts.URL)
-	got, err := New().Analyze(context.Background(), analyzers.Deps{
+	res, err := New().Analyze(context.Background(), analyzers.Deps{
 		Prom:   c,
 		Logger: slog.Default(),
 		Limits: analyzers.DefaultLimits(),
@@ -186,8 +186,8 @@ func TestAnalyzer_SortsBySeverityThenUnique(t *testing.T) {
 		t.Fatalf("Analyze: %v", err)
 	}
 	wantOrder := []string{"trace_id", "span_id", "user_id"}
-	gotOrder := make([]string, 0, len(got))
-	for _, f := range got {
+	gotOrder := make([]string, 0, len(res.Findings))
+	for _, f := range res.Findings {
 		gotOrder = append(gotOrder, f.Evidence.Label)
 	}
 	if diff := cmp.Diff(wantOrder, gotOrder, cmpopts.EquateEmpty()); diff != "" {

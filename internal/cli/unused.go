@@ -31,6 +31,7 @@ Subcommands:
 	return cmd
 }
 
+//nolint:gocyclo // RunE closure is straight-line config-gathering; no branching to flatten
 func newUnusedMetricsCmd() *cobra.Command {
 	var (
 		limit       int
@@ -81,17 +82,26 @@ recording rule references count toward "used".`,
 			if err != nil {
 				return &exitError{code: 2, err: err}
 			}
+			vmalert, err := buildVMAlertClient(cfg, "remetric/unused-metrics")
+			if err != nil {
+				return &exitError{code: 2, err: err}
+			}
 
 			d := analyzers.Deps{
-				Prom:   prom,
-				Graf:   graf,
-				Logger: loggerFrom(ctx),
-				Limits: analyzers.DefaultLimits(),
+				Prom:    prom,
+				Graf:    graf,
+				VMAlert: vmalert,
+				Logger:  loggerFrom(ctx),
+				Limits:  analyzers.DefaultLimits(),
 			}
-			all, err := unusedmetrics.New().Analyze(ctx, d)
+			res, err := unusedmetrics.New().Analyze(ctx, d)
 			if err != nil {
 				return &exitError{code: 1, err: err}
 			}
+			for _, w := range res.Warnings {
+				_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "! warning: %s\n", w)
+			}
+			all := res.Findings
 
 			filtered := filterAtLeast(all, minSev)
 			if len(filtered) == 0 {

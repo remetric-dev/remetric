@@ -5,6 +5,7 @@ package unusedmetrics
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 
@@ -15,6 +16,12 @@ import (
 	"github.com/remetric-dev/remetric/internal/promqlx"
 	"github.com/remetric-dev/remetric/internal/scoring"
 )
+
+// errRulesUnavailable signals that the rules endpoint is unreachable on the
+// detected flavor (e.g., VictoriaMetrics without a vmalert client). It is a
+// graceful-degradation sentinel: callers convert it to a Result warning
+// rather than failing the analyzer.
+var errRulesUnavailable = errors.New("rules unavailable")
 
 // Analyzer flags ingested metrics that no Grafana dashboard, alert
 // rule, or recording rule references.
@@ -30,25 +37,29 @@ func (a *Analyzer) Name() string { return "unusedmetrics" }
 //
 // When Deps.Graf is nil, dashboard-based usage signal is skipped;
 // only rules + recording-output names are considered "used".
-func (a *Analyzer) Analyze(ctx context.Context, d analyzers.Deps) ([]findings.Finding, error) {
+func (a *Analyzer) Analyze(ctx context.Context, d analyzers.Deps) (analyzers.Result, error) {
 	ingested, err := d.Prom.LabelValues(ctx, "__name__")
 	if err != nil {
-		return nil, fmt.Errorf("unusedmetrics: ingested names: %w", err)
+		return analyzers.Result{}, fmt.Errorf("unusedmetrics: ingested names: %w", err)
 	}
 
-	// Used set: dashboard queries + alert exprs + recording-rule exprs + recording output names.
 	used := map[string]struct{}{}
+	var warnings []string
+
 	if err := collectDashboardUsage(ctx, d.Graf, used); err != nil {
-		return nil, err
+		return analyzers.Result{}, err
 	}
-	if err := collectRuleUsage(ctx, d.Prom, used); err != nil {
-		return nil, err
+	if err := collectRuleUsage(ctx, d, used); err != nil {
+		if errors.Is(err, errRulesUnavailable) {
+			warnings = append(warnings, "rules unavailable: VictoriaMetrics detected without --vmalert URL — recording rules ignored")
+		} else {
+			return analyzers.Result{}, err
+		}
 	}
 
-	// Map metric name → head series count via TSDB stats.
 	stats, err := d.Prom.TSDBStats(ctx, len(ingested))
 	if err != nil {
-		return nil, fmt.Errorf("unusedmetrics: tsdb stats: %w", err)
+		return analyzers.Result{}, fmt.Errorf("unusedmetrics: tsdb stats: %w", err)
 	}
 	seriesByMetric := make(map[string]int64, len(stats.SeriesCountByMetricName))
 	for _, m := range stats.SeriesCountByMetricName {
@@ -62,7 +73,7 @@ func (a *Analyzer) Analyze(ctx context.Context, d analyzers.Deps) ([]findings.Fi
 		}
 		f, err := buildFinding(name, seriesByMetric[name])
 		if err != nil {
-			return nil, err
+			return analyzers.Result{}, err
 		}
 		out = append(out, f)
 	}
@@ -72,7 +83,7 @@ func (a *Analyzer) Analyze(ctx context.Context, d analyzers.Deps) ([]findings.Fi
 		}
 		return out[i].Evidence.SeriesCount > out[j].Evidence.SeriesCount
 	})
-	return out, nil
+	return analyzers.Result{Findings: out, Warnings: warnings}, nil
 }
 
 // collectDashboardUsage walks every Grafana dashboard and records the
@@ -107,11 +118,46 @@ func collectDashboardUsage(ctx context.Context, graf *grafana.Client, used map[s
 
 // collectRuleUsage records every metric referenced by an alerting or
 // recording rule expression, plus the output name of each recording
-// rule.
-func collectRuleUsage(ctx context.Context, prom *prometheus.Client, used map[string]struct{}) error {
-	rules, err := prom.Rules(ctx)
+// rule. When d.VMAlert is non-nil it is preferred over d.Prom — this
+// covers the VictoriaMetrics topology where vmselect (the main client)
+// does not serve /api/v1/rules but vmalert does.
+//
+// On VictoriaMetrics without a vmalert URL we surface errRulesUnavailable
+// (a non-fatal sentinel) so callers can degrade gracefully. Two paths
+// reach that sentinel: the rule call 404s (older VM builds, or non-VM
+// gateways), or it returns 200 with empty/partial groups (real VM
+// single-node behavior — vmselect serves the endpoint but recording
+// rules live in vmalert which we don't have a URL for). We cannot
+// distinguish "no rules configured anywhere" from "rules live in
+// vmalert we can't see", so we warn either way.
+func collectRuleUsage(ctx context.Context, d analyzers.Deps, used map[string]struct{}) error {
+	client := d.Prom
+	if d.VMAlert != nil {
+		client = d.VMAlert
+	}
+	rules, err := client.Rules(ctx)
 	if err != nil {
+		if errors.Is(err, prometheus.ErrNotFound) {
+			// Trigger flavor detection so the graceful-degradation branch
+			// can read Flavor() reliably regardless of step ordering in
+			// Analyze. BuildInfo is cached after the first call.
+			_, _ = d.Prom.BuildInfo(ctx)
+			if d.Prom.Flavor() == prometheus.FlavorVictoria {
+				return errRulesUnavailable
+			}
+		}
 		return fmt.Errorf("unusedmetrics: rules: %w", err)
+	}
+	// Real-world VictoriaMetrics single-node serves /api/v1/rules at HTTP
+	// 200 with `{"data":{"groups":[]}}` (or a partial view), because
+	// recording rules are owned by vmalert — a separate process. Without
+	// a --vmalert URL we cannot trust this payload to be complete, so
+	// short-circuit to the same warning the 404 path takes.
+	if d.VMAlert == nil {
+		_, _ = d.Prom.BuildInfo(ctx) // trigger flavor detection (cached)
+		if d.Prom.Flavor() == prometheus.FlavorVictoria {
+			return errRulesUnavailable
+		}
 	}
 	for _, g := range rules.Groups {
 		for _, r := range g.Rules {

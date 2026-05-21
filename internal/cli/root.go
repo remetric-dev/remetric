@@ -111,6 +111,9 @@ Supported Prometheus versions: 2.30 and newer.`,
 			if err != nil {
 				return fmt.Errorf("load config: %w", err)
 			}
+			if err := cfg.Validate(); err != nil {
+				return err
+			}
 			verbose, _ := cmd.Flags().GetBool("verbose")
 			lvl := slog.LevelWarn
 			if verbose {

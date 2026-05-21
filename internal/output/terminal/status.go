@@ -31,6 +31,9 @@ func (r *Renderer) RenderDoctor(rep findings.DoctorReport) error {
 		}
 		w.printf("%s %s\n", mark(rep.VersionOK), label)
 	}
+	if rep.Backend != "" {
+		w.printf("     backend:      %s\n", rep.Backend)
+	}
 	w.printf("%s tsdb stats accessible (auth: %s)\n", mark(rep.TSDBStatsOK), rep.AuthMethod)
 	if rep.NumSeries > 0 {
 		w.printf("     active series: %s\n", fmtInt(rep.NumSeries))
@@ -38,8 +41,11 @@ func (r *Renderer) RenderDoctor(rep findings.DoctorReport) error {
 	if rep.NumMetrics > 0 {
 		w.printf("     metric names: %s\n", fmtInt(rep.NumMetrics))
 	}
-	if rep.StorageRetention != "" {
+	switch {
+	case rep.StorageRetention != "":
 		w.printf("     retention:    %s\n", rep.StorageRetention)
+	case !rep.RuntimeInfoSupported:
+		w.printf("     retention:    n/a (not supported by backend)\n")
 	}
 
 	if len(rep.Errors) > 0 {

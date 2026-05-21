@@ -52,3 +52,33 @@ func TestRenderFindings_InvalidOutput(t *testing.T) {
 		t.Errorf("expected error for unsupported output, got nil")
 	}
 }
+
+func TestRenderReport_PrintsWarnings_Terminal(t *testing.T) {
+	r := findings.NewReport("1.0", nil)
+	r.Warnings = []string{"vmalert URL not configured"}
+	var buf bytes.Buffer
+	cfg := &config.Config{Output: "terminal", NoColor: true}
+	if err := renderReport(cfg, &buf, r); err != nil {
+		t.Fatalf("renderReport: %v", err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "warning") {
+		t.Errorf("expected 'warning' in output: %q", out)
+	}
+	if !strings.Contains(out, "vmalert URL not configured") {
+		t.Errorf("expected warning text in output: %q", out)
+	}
+}
+
+func TestRenderReport_NoWarningsOmitsBanner_Terminal(t *testing.T) {
+	r := findings.NewReport("1.0", nil)
+	var buf bytes.Buffer
+	cfg := &config.Config{Output: "terminal", NoColor: true}
+	if err := renderReport(cfg, &buf, r); err != nil {
+		t.Fatalf("renderReport: %v", err)
+	}
+	out := buf.String()
+	if strings.Contains(out, "warning") {
+		t.Errorf("did not expect 'warning' in output for empty Warnings: %q", out)
+	}
+}

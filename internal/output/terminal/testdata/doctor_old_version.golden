@@ -2,6 +2,7 @@ remetric doctor — http://localhost:9090 (in 300ms)
 
 [OK] reachable
 [FAIL] version 2.29.1 (below minimum 2.30)
+     backend:      prometheus
 [FAIL] tsdb stats accessible (auth: bearer)
 
 Issues:

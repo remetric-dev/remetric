@@ -16,10 +16,14 @@ import (
 
 // Deps groups the dependencies passed to an analyzer at Analyze time.
 type Deps struct {
-	Prom   *prometheus.Client
-	Graf   *grafana.Client // may be nil — analyzers that need Grafana skip when absent
-	Logger *slog.Logger
-	Limits Limits
+	Prom *prometheus.Client
+	// Graf may be nil — analyzers that need Grafana skip when absent.
+	Graf *grafana.Client
+	// VMAlert is an optional second client pointed at vmalert for /api/v1/rules.
+	// When nil, analyzers fall back to Prom for rule queries.
+	VMAlert *prometheus.Client
+	Logger  *slog.Logger
+	Limits  Limits
 }
 
 // Limits caps the work an analyzer performs.
@@ -38,8 +42,15 @@ func DefaultLimits() Limits {
 	}
 }
 
+// Result is the analyzer output: zero or more findings plus
+// non-fatal degradation warnings (e.g., "vmalert URL not configured").
+type Result struct {
+	Findings []findings.Finding
+	Warnings []string
+}
+
 // Analyzer produces findings.
 type Analyzer interface {
 	Name() string
-	Analyze(ctx context.Context, d Deps) ([]findings.Finding, error)
+	Analyze(ctx context.Context, d Deps) (Result, error)
 }

@@ -71,10 +71,14 @@ environment) are explicitly ignored even when high-cardinality.`,
 				Limits: analyzers.DefaultLimits(),
 			}
 			a := labelpattern.New()
-			all, err := a.Analyze(ctx, d)
+			res, err := a.Analyze(ctx, d)
 			if err != nil {
 				return &exitError{code: 1, err: err}
 			}
+			for _, w := range res.Warnings {
+				_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "! warning: %s\n", w)
+			}
+			all := res.Findings
 
 			filtered := filterAtLeast(all, minSev)
 			if len(filtered) == 0 {

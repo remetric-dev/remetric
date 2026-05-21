@@ -50,6 +50,7 @@ Use --output json to emit machine-readable output (e.g. for CI).`,
 	}
 }
 
+//nolint:gocyclo // straight-line config-gathering and best-effort enrichments; no branching to flatten
 func runDoctor(cmd *cobra.Command, _ []string) error {
 	ctx := cmd.Context()
 	cfg := configFrom(ctx)
@@ -87,12 +88,19 @@ func runDoctor(cmd *cobra.Command, _ []string) error {
 		rep.Errors = append(rep.Errors, findings.DoctorError{Check: "buildinfo", Error: err.Error()})
 	} else {
 		rep.Version = bi.Version
-		rep.VersionOK = compareVersions(bi.Version, minPrometheusVersion) >= 0
-		if !rep.VersionOK {
-			rep.Errors = append(rep.Errors, findings.DoctorError{
-				Check: "version",
-				Error: fmt.Sprintf("prometheus %s is below minimum %s", bi.Version, minPrometheusVersion),
-			})
+		rep.Backend = client.Flavor().String()
+		// The Prometheus minimum-version gate only applies to a Prometheus
+		// backend; VictoriaMetrics ships an unrelated v1.x version line.
+		if client.Flavor() == prom.FlavorVictoria {
+			rep.VersionOK = true
+		} else {
+			rep.VersionOK = compareVersions(bi.Version, minPrometheusVersion) >= 0
+			if !rep.VersionOK {
+				rep.Errors = append(rep.Errors, findings.DoctorError{
+					Check: "version",
+					Error: fmt.Sprintf("prometheus %s is below minimum %s", bi.Version, minPrometheusVersion),
+				})
+			}
 		}
 	}
 
@@ -106,7 +114,12 @@ func runDoctor(cmd *cobra.Command, _ []string) error {
 	// Best-effort enrichments: failures are silently ignored so the report
 	// simply omits these fields. The [OK] markers above remain authoritative.
 	if rt, err := client.RuntimeInfo(ctx); err == nil {
+		rep.RuntimeInfoSupported = true
 		rep.StorageRetention = rt.StorageRetention
+	} else if errors.Is(err, prom.ErrNotSupported) {
+		// Backend (e.g., VictoriaMetrics) doesn't expose runtimeinfo.
+		// Leave RuntimeInfoSupported = false; renderer prints n/a.
+		_ = err
 	}
 	if names, err := client.LabelValues(ctx, "__name__"); err == nil {
 		rep.NumMetrics = int64(len(names))
@@ -148,6 +161,14 @@ func authMethodFor(cfg *config.Config) string {
 
 func buildPromClient(cfg *config.Config, ua string) (*prom.Client, error) {
 	opts := []prom.Option{prom.WithUserAgent(ua), prom.WithMaxInFlight(cfg.Prometheus.MaxInFlight)}
+	switch strings.ToLower(cfg.Backend) {
+	case "", "auto":
+		// no hint — detection runs at first use
+	case "prometheus":
+		opts = append(opts, prom.WithFlavorHint(prom.FlavorProm))
+	case "victoria":
+		opts = append(opts, prom.WithFlavorHint(prom.FlavorVictoria))
+	}
 	if cfg.Prometheus.Token != "" {
 		opts = append(opts, prom.WithBearerToken(cfg.Prometheus.Token))
 	}
@@ -213,6 +234,7 @@ func compareVersions(a, b string) int {
 }
 
 func versionParts(s string) [3]int {
+	s = strings.TrimPrefix(s, "v")
 	var out [3]int
 	parts := strings.Split(strings.SplitN(s, "-", 2)[0], ".")
 	for i := 0; i < 3 && i < len(parts); i++ {

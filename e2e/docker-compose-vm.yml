@@ -1,0 +1,39 @@
+# e2e/docker-compose-vm.yml — VictoriaMetrics + vmalert + cardinality-bomb.
+# Brought up by `make e2e-vm-up`. Coexists with the main e2e stack via
+# distinct container names and host ports.
+name: e2e-vm
+services:
+  victoria:
+    image: victoriametrics/victoria-metrics:v1.99.0
+    container_name: remetric-e2e-vm
+    command:
+      - "-storageDataPath=/storage"
+      - "-promscrape.config=/etc/vm/scrape.yml"
+      - "-retentionPeriod=1d"
+    ports:
+      - "8428:8428"
+    volumes:
+      - ./vm-scrape.yml:/etc/vm/scrape.yml:ro
+
+  vmalert:
+    image: victoriametrics/vmalert:v1.99.0
+    container_name: remetric-e2e-vmalert
+    depends_on:
+      - victoria
+    command:
+      - "-datasource.url=http://victoria:8428"
+      - "-remoteWrite.url=http://victoria:8428"
+      - "-rule=/etc/vmalert/rules.yml"
+      - "-notifier.url=http://127.0.0.1:9093"
+      - "-evaluationInterval=10s"
+    ports:
+      - "8880:8880"
+    volumes:
+      - ./vmalert-rules.yml:/etc/vmalert/rules.yml:ro
+
+  cardinality-bomb-vm:
+    build:
+      context: ./cardinality-bomb
+    container_name: remetric-e2e-bomb-vm
+    ports:
+      - "8081:8080"

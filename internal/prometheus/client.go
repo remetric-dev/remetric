@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"reflect"
+	"sync"
 	"time"
 
 	retryablehttp "github.com/hashicorp/go-retryablehttp"
@@ -28,6 +29,13 @@ type Client struct {
 	maxInFlight   int
 	userAgent     string
 	logger        *slog.Logger
+
+	flavor         Flavor
+	flavorHint     Flavor
+	flavorMu       sync.Mutex
+	flavorDone     bool
+	flavorErr      error
+	buildInfoCache *BuildInfo
 
 	sem chan struct{}
 }

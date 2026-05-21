@@ -100,7 +100,7 @@ func TestDoctor_PopulatesMetricsAndRetention(t *testing.T) {
 		case "/-/healthy":
 			w.WriteHeader(http.StatusOK)
 		case "/api/v1/status/buildinfo":
-			_, _ = w.Write([]byte(`{"status":"success","data":{"version":"2.51.2"}}`))
+			_, _ = w.Write([]byte(`{"status":"success","data":{"version":"2.51.2","revision":"x","goVersion":"go1.22.0"}}`))
 		case "/api/v1/status/tsdb":
 			_, _ = w.Write([]byte(`{"status":"success","data":{"headStats":{"numSeries":1234},"seriesCountByMetricName":[],"labelValueCountByLabelName":[]}}`))
 		case "/api/v1/status/runtimeinfo":
@@ -132,6 +132,50 @@ func TestDoctor_PopulatesMetricsAndRetention(t *testing.T) {
 	}
 }
 
+func TestDoctor_VictoriaBackend_PrintsLabelAndRuntimeNA(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/-/healthy":
+			w.WriteHeader(http.StatusOK)
+		case "/api/v1/status/buildinfo":
+			// Empty data is a VictoriaMetrics tell, but we also pass
+			// --backend=victoria so detection is skipped via the hint.
+			_, _ = w.Write([]byte(`{"status":"success","data":{"version":"v1.99.0"}}`))
+		case "/api/v1/status/tsdb":
+			_, _ = w.Write([]byte(`{"status":"success","data":{"seriesCountByMetricName":[]}}`))
+		case "/api/v1/label/__name__/values":
+			_, _ = w.Write([]byte(`{"status":"success","data":[]}`))
+		case "/api/v1/status/runtimeinfo":
+			http.Error(w, "not found", http.StatusNotFound)
+		default:
+			http.Error(w, "unexpected: "+r.URL.Path, http.StatusInternalServerError)
+		}
+	}))
+	defer srv.Close()
+
+	var out bytes.Buffer
+	// The Prometheus minimum-version gate is skipped on VictoriaMetrics,
+	// so a healthy VM target returns exit code 0 even though VM's "v1.x"
+	// version line would not satisfy Prometheus's "2.30+" heuristic.
+	code := cli.ExecuteWith(cli.Args{
+		Version: "test",
+		Args:    []string{"doctor", "--prometheus", srv.URL, "--backend", "victoria", "--no-color"},
+		Stdout:  &out,
+		Stderr:  &out,
+	})
+	if code != 0 {
+		t.Errorf("exit = %d, want 0\nout:\n%s", code, out.String())
+	}
+	body := out.String()
+	if !strings.Contains(body, "backend:      victoria") {
+		t.Errorf("doctor output missing 'backend: victoria' line:\n%s", body)
+	}
+	if !strings.Contains(body, "retention:    n/a") {
+		t.Errorf("doctor output missing 'retention: n/a' line for VM:\n%s", body)
+	}
+}
+
 func TestDoctor_JSONOutput(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -139,7 +183,7 @@ func TestDoctor_JSONOutput(t *testing.T) {
 		case "/-/healthy":
 			w.WriteHeader(http.StatusOK)
 		case "/api/v1/status/buildinfo":
-			_, _ = w.Write([]byte(`{"status":"success","data":{"version":"2.51.2"}}`))
+			_, _ = w.Write([]byte(`{"status":"success","data":{"version":"2.51.2","revision":"x","goVersion":"go1.22.0"}}`))
 		case "/api/v1/status/tsdb":
 			_, _ = w.Write([]byte(`{"status":"success","data":{"headStats":{"numSeries":1234},"seriesCountByMetricName":[],"labelValueCountByLabelName":[]}}`))
 		case "/api/v1/status/runtimeinfo":
