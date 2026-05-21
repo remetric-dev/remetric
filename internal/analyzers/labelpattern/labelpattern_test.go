@@ -214,3 +214,90 @@ func TestNewWithPatterns_InvalidRegex(t *testing.T) {
 		t.Errorf("expected error for invalid regex, got nil")
 	}
 }
+
+func TestAnalyzer_HeuristicDowngradesBoundedValues(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case strings.HasPrefix(r.URL.Path, "/api/v1/status/tsdb"):
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"status": "success",
+				"data": map[string]any{
+					"headStats":               map[string]any{"numSeries": 1_000_000},
+					"seriesCountByMetricName": []map[string]any{{"name": "m", "value": 100}},
+					"labelValueCountByLabelName": []map[string]any{
+						{"name": "user_id", "value": 5_000}, // would be High
+					},
+				},
+			})
+		case r.URL.Path == "/api/v1/label/__name__/values":
+			_ = json.NewEncoder(w).Encode(map[string]any{"status": "success", "data": []string{"m"}})
+		case r.URL.Path == "/api/v1/label/user_id/values":
+			// Bounded-looking samples: short digits.
+			_ = json.NewEncoder(w).Encode(map[string]any{"status": "success", "data": []string{"1", "2", "3", "4", "5"}})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer ts.Close()
+
+	c, _ := prometheus.New(ts.URL)
+	res, err := New().Analyze(context.Background(), analyzers.Deps{
+		Prom: c, Logger: slog.Default(), Limits: analyzers.DefaultLimits(),
+	})
+	if err != nil {
+		t.Fatalf("Analyze: %v", err)
+	}
+	if len(res.Findings) != 1 {
+		t.Fatalf("Findings = %d, want 1", len(res.Findings))
+	}
+	if res.Findings[0].Severity != findings.SeverityMedium {
+		t.Errorf("Severity = %v, want Medium (downgraded from High)", res.Findings[0].Severity)
+	}
+	if !strings.Contains(res.Findings[0].Evidence.Description, "look bounded") {
+		t.Errorf("Description = %q, want it to mention 'look bounded'", res.Findings[0].Evidence.Description)
+	}
+}
+
+func TestAnalyzer_HeuristicKeepsUnboundedSeverity(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case strings.HasPrefix(r.URL.Path, "/api/v1/status/tsdb"):
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"status": "success",
+				"data": map[string]any{
+					"headStats":               map[string]any{"numSeries": 1_000_000},
+					"seriesCountByMetricName": []map[string]any{{"name": "m", "value": 100}},
+					"labelValueCountByLabelName": []map[string]any{
+						{"name": "user_id", "value": 5_000},
+					},
+				},
+			})
+		case r.URL.Path == "/api/v1/label/__name__/values":
+			_ = json.NewEncoder(w).Encode(map[string]any{"status": "success", "data": []string{"m"}})
+		case r.URL.Path == "/api/v1/label/user_id/values":
+			// UUID-like samples → unbounded.
+			_ = json.NewEncoder(w).Encode(map[string]any{"status": "success", "data": []string{"u-abc-1", "u-xyz-99", "u-qqq-42"}})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer ts.Close()
+	c, _ := prometheus.New(ts.URL)
+	res, err := New().Analyze(context.Background(), analyzers.Deps{
+		Prom: c, Logger: slog.Default(), Limits: analyzers.DefaultLimits(),
+	})
+	if err != nil {
+		t.Fatalf("Analyze: %v", err)
+	}
+	if len(res.Findings) != 1 {
+		t.Fatalf("Findings = %d, want 1", len(res.Findings))
+	}
+	if res.Findings[0].Severity != findings.SeverityHigh {
+		t.Errorf("Severity = %v, want High (NOT downgraded)", res.Findings[0].Severity)
+	}
+	if strings.Contains(res.Findings[0].Evidence.Description, "look bounded") {
+		t.Errorf("Description = %q, must NOT mention 'look bounded'", res.Findings[0].Evidence.Description)
+	}
+}

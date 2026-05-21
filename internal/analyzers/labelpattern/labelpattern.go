@@ -59,9 +59,6 @@ func (a *Analyzer) Analyze(ctx context.Context, d analyzers.Deps) (analyzers.Res
 			continue
 		}
 
-		// TODO(phase3): heuristic verification that sampled values look
-		// unbounded (variance in length, no obvious enum).
-
 		samples, err := d.Prom.LabelValues(ctx, lbl.Name)
 		if err != nil {
 			return analyzers.Result{}, fmt.Errorf("labelpattern: sample %q: %w", lbl.Name, err)
@@ -80,6 +77,11 @@ func (a *Analyzer) Analyze(ctx context.Context, d analyzers.Deps) (analyzers.Res
 
 		uniq := int(lbl.Value)
 		sev := scoring.LabelPatternSeverity(uniq)
+		descSuffix := ""
+		if !looksUnbounded(samples) {
+			sev = downgradeOnce(sev)
+			descSuffix = " (sampled values look bounded — possible false positive)"
+		}
 		impact := EstimateImpact(seriesAffected, uniq)
 
 		fixCfg, err := RenderFix(lbl.Name, metrics)
@@ -97,7 +99,7 @@ func (a *Analyzer) Analyze(ctx context.Context, d analyzers.Deps) (analyzers.Res
 				UniqueValues: uniq,
 				SampleValues: sampleValues(samples, d.Limits.SampleSize),
 				SeriesCount:  seriesAffected,
-				Description:  fmt.Sprintf("%s has %d unique values across %d metrics", lbl.Name, uniq, len(metrics)),
+				Description:  fmt.Sprintf("%s has %d unique values across %d metrics%s", lbl.Name, uniq, len(metrics), descSuffix),
 			},
 			Fix: findings.Fix{
 				Type:   "drop_label",
