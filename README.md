@@ -101,7 +101,7 @@ Diff ingested metrics against everything Grafana, alert rules, and recording
 rules actually reference. Anything left over is a candidate to drop.
 
 ```bash
-remetric unused metrics \
+remetric metrics unused \
   --prometheus http://localhost:9090 \
   --grafana http://localhost:3000
 ```
@@ -144,7 +144,7 @@ remetric scan --prometheus http://vm:8428 --backend victoria
 ### vmalert
 
 `/api/v1/rules` is served by `vmalert`, not `vmselect`. Without
-`--vmalert`, `unused metrics` and `scan` warn with `rules unavailable`
+`--vmalert`, `metrics unused` and `scan` warn with `rules unavailable`
 and may report false-positives for metrics referenced only by recording
 rules. Point `--vmalert` at the vmalert HTTP listener (default `:8880`)
 to get full coverage. Auth flags `--vmalert-token` / `--vmalert-basic-auth`
@@ -168,7 +168,7 @@ exist for split-credential setups; if omitted, vmalert inherits auth from
 | `remetric cardinality top`         | List the worst-offending high-cardinality metric/label pairs|
 | `remetric cardinality labels`      | Per-metric label inventory (unique counts + sample values)  |
 | `remetric cardinality suspicious`  | Flag labels matching unbounded-identifier patterns          |
-| `remetric unused metrics`          | Ingested ∖ used metrics (needs Grafana for dashboard coverage)|
+| `remetric metrics unused`          | Ingested ∖ used metrics (needs Grafana for dashboard coverage)|
 | `remetric scan`                    | Run every available analyzer, emit a unified Report         |
 
 Global flags (subset; see `--help` for the full list):

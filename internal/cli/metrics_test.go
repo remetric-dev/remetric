@@ -43,11 +43,11 @@ func newPromUnusedStub(t *testing.T) *httptest.Server {
 	}))
 }
 
-func TestUnusedMetrics_RequiresPrometheus(t *testing.T) {
+func TestMetricsUnused_RequiresPrometheus(t *testing.T) {
 	var out bytes.Buffer
 	code := cli.ExecuteWith(cli.Args{
 		Version: "test",
-		Args:    []string{"unused", "metrics"},
+		Args:    []string{"metrics", "unused"},
 		Stdout:  &out,
 		Stderr:  &out,
 	})
@@ -59,7 +59,7 @@ func TestUnusedMetrics_RequiresPrometheus(t *testing.T) {
 	}
 }
 
-func TestUnusedMetrics_FindsUnusedMetric(t *testing.T) {
+func TestMetricsUnused_FindsUnusedMetric(t *testing.T) {
 	ts := newPromUnusedStub(t)
 	defer ts.Close()
 
@@ -67,7 +67,7 @@ func TestUnusedMetrics_FindsUnusedMetric(t *testing.T) {
 	code := cli.ExecuteWith(cli.Args{
 		Version: "test",
 		Args: []string{
-			"unused", "metrics",
+			"metrics", "unused",
 			"--prometheus", ts.URL,
 			"--min-severity", "low",
 		},
@@ -82,7 +82,7 @@ func TestUnusedMetrics_FindsUnusedMetric(t *testing.T) {
 	}
 }
 
-func TestUnusedMetrics_JSONOutput(t *testing.T) {
+func TestMetricsUnused_JSONOutput(t *testing.T) {
 	ts := newPromUnusedStub(t)
 	defer ts.Close()
 
@@ -90,7 +90,7 @@ func TestUnusedMetrics_JSONOutput(t *testing.T) {
 	code := cli.ExecuteWith(cli.Args{
 		Version: "test",
 		Args: []string{
-			"unused", "metrics",
+			"metrics", "unused",
 			"--prometheus", ts.URL,
 			"--output", "json",
 			"--min-severity", "low",

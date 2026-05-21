@@ -71,16 +71,16 @@ func TestE2E_CardinalityLabels_JSON(t *testing.T) {
 	}
 }
 
-func TestE2E_UnusedMetrics_Terminal(t *testing.T) {
+func TestE2E_MetricsUnused_Terminal(t *testing.T) {
 	out, err := runCmd(t, binPath(t),
-		"unused", "metrics",
+		"metrics", "unused",
 		"--prometheus", "http://localhost:9090",
 		"--grafana", "http://localhost:3000",
 		"--no-color",
 		"--min-severity", "low",
 	)
 	if err != nil {
-		t.Fatalf("unused metrics failed: %v\n%s", err, out)
+		t.Fatalf("metrics unused failed: %v\n%s", err, out)
 	}
 	upper := strings.ToUpper(out)
 	if !strings.Contains(upper, "SEVERITY") && !strings.Contains(out, "No unused metrics") {
@@ -88,16 +88,16 @@ func TestE2E_UnusedMetrics_Terminal(t *testing.T) {
 	}
 }
 
-func TestE2E_UnusedMetrics_JSON(t *testing.T) {
+func TestE2E_MetricsUnused_JSON(t *testing.T) {
 	out, err := runCmd(t, binPath(t),
-		"unused", "metrics",
+		"metrics", "unused",
 		"--prometheus", "http://localhost:9090",
 		"--grafana", "http://localhost:3000",
 		"--output", "json",
 		"--min-severity", "low",
 	)
 	if err != nil {
-		t.Fatalf("unused metrics --output json failed: %v\n%s", err, out)
+		t.Fatalf("metrics unused --output json failed: %v\n%s", err, out)
 	}
 	if !strings.HasPrefix(strings.TrimSpace(out), "{") {
 		t.Errorf("expected JSON document, got:\n%s", out)
