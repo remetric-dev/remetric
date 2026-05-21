@@ -8,6 +8,8 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -194,6 +196,39 @@ func TestBuildInfo_ConcurrentFallbackIsRaceFree(t *testing.T) {
 	// fetches before the cache is populated. The contract is: first writer wins.
 	if hits < 1 {
 		t.Errorf("expected at least 1 HTTP hit, got %d", hits)
+	}
+}
+
+func TestTSDBStats_VictoriaFormat(t *testing.T) {
+	body, err := os.ReadFile(filepath.Join("testdata", "tsdb-vm.json"))
+	if err != nil {
+		t.Fatalf("read fixture: %v", err)
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v1/status/tsdb" {
+			http.Error(w, "wrong path", 500)
+			return
+		}
+		_, _ = w.Write(body)
+	}))
+	defer srv.Close()
+	c, err := prom.New(srv.URL, prom.WithFlavorHint(prom.FlavorVictoria))
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	stats, err := c.TSDBStats(context.Background(), 0)
+	if err != nil {
+		t.Fatalf("TSDBStats: %v", err)
+	}
+	wantHeadSeries := int64(700) // 500 + 200
+	if stats.HeadStats.NumSeries != wantHeadSeries {
+		t.Errorf("HeadStats.NumSeries = %d, want %d", stats.HeadStats.NumSeries, wantHeadSeries)
+	}
+	if len(stats.SeriesCountByMetricName) != 2 {
+		t.Errorf("SeriesCountByMetricName len = %d, want 2", len(stats.SeriesCountByMetricName))
+	}
+	if stats.SeriesCountByMetricName[0].Name != "app_requests_total" {
+		t.Errorf("top metric = %q, want %q", stats.SeriesCountByMetricName[0].Name, "app_requests_total")
 	}
 }
 
