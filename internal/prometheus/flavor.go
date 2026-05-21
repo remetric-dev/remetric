@@ -83,10 +83,10 @@ func (c *Client) detectFlavor(ctx context.Context) (Flavor, error) {
 			case http.StatusNotFound:
 				return FlavorVictoria, nil
 			case http.StatusUnauthorized, http.StatusForbidden:
-				// Preserve ErrAuth alongside ErrFlavorDetectFailed so callers
-				// of BuildInfo() (which now routes through ensureFlavor) can
-				// still distinguish auth failures via errors.Is.
-				return FlavorUnknown, errors.Join(ErrFlavorDetectFailed, ErrAuth)
+				// Auth failures are not a detection-algorithm failure: surface
+				// ErrAuth directly so callers can distinguish credentials from
+				// ambiguous backend responses.
+				return FlavorUnknown, ErrAuth
 			}
 		}
 		return FlavorUnknown, ErrFlavorDetectFailed
