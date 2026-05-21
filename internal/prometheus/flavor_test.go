@@ -135,3 +135,39 @@ func TestEnsureFlavor_HintSkipsDetection(t *testing.T) {
 		t.Errorf("buildinfo hit count = %d, want 0", hits)
 	}
 }
+
+func TestEnsureFlavor_DoesNotCacheCtxError(t *testing.T) {
+	var hits int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits++
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte(`{"status":"success","data":{"version":"v1.99.0"}}`))
+	}))
+	defer srv.Close()
+	c, err := New(srv.URL)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	// First call with a pre-cancelled context — should error, not cache.
+	cancelled, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := c.ensureFlavor(cancelled); err == nil {
+		t.Fatalf("expected error from cancelled context")
+	}
+	if c.Flavor() != FlavorUnknown {
+		t.Errorf("Flavor() after cancelled detect = %v, want FlavorUnknown", c.Flavor())
+	}
+	// Second call with a fresh context — should succeed and not be sticky.
+	if err := c.ensureFlavor(context.Background()); err != nil {
+		t.Fatalf("retry after ctx cancel: %v", err)
+	}
+	if c.Flavor() != FlavorVictoria {
+		t.Errorf("Flavor() after successful detect = %v, want FlavorVictoria", c.Flavor())
+	}
+	// hits should be 1 (the cancelled attempt never reached the server)
+	// ... actually since the request goes through c.do which checks ctx before
+	// the semaphore, hits may be 0 or 1 depending on timing. Just assert >= 1.
+	if hits < 1 {
+		t.Errorf("expected at least 1 server hit, got %d", hits)
+	}
+}
