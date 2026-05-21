@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>remetric report — {{.Target.PrometheusURL}}</title>
+<style>{{.CSS}}</style>
+</head>
+<body>
+<header>
+  <h1>remetric report</h1>
+  <p class="target">{{.Target.PrometheusURL}}{{if .Target.PrometheusVersion}} <span class="ver">(Prometheus {{.Target.PrometheusVersion}})</span>{{end}}</p>
+  <p class="meta">Scanned {{.ScannedAtDisplay}} · remetric {{.Version}}</p>
+</header>
+
+{{if .Warnings}}
+<aside class="warnings">
+  <h2>Warnings</h2>
+  <ul>{{range .Warnings}}<li>{{.}}</li>{{end}}</ul>
+</aside>
+{{end}}
+
+<section class="summary">
+  <div class="donut">{{.DonutSVG}}</div>
+  <table class="severity-counts">
+    <tr><th>Critical</th><td>{{index .Counts "critical"}}</td></tr>
+    <tr><th>High</th><td>{{index .Counts "high"}}</td></tr>
+    <tr><th>Medium</th><td>{{index .Counts "medium"}}</td></tr>
+    <tr><th>Low</th><td>{{index .Counts "low"}}</td></tr>
+  </table>
+</section>
+
+<nav class="filters">
+  <fieldset class="severity">
+    <legend>Severity</legend>
+    {{range $sev := .Severities}}
+      <label><input type="checkbox" checked data-sev="{{$sev}}">{{$sev}}</label>
+    {{end}}
+  </fieldset>
+  <fieldset class="category">
+    <legend>Category</legend>
+    {{range $cat := .Categories}}
+      <label><input type="checkbox" checked data-cat="{{$cat}}">{{$cat}}</label>
+    {{end}}
+  </fieldset>
+</nav>
+
+<main id="findings">
+{{range .Findings}}
+  <details class="finding sev-{{.Severity}}" data-category="{{.Category}}">
+    <summary>
+      <span class="badge sev-{{.Severity}}">{{.Severity}}</span>
+      <span class="title">{{.Title}}</span>
+    </summary>
+    <p class="evidence">{{.Evidence.Description}}</p>
+    {{if .Fix.Config}}<pre class="fix"><code>{{.Fix.Config}}</code></pre>{{end}}
+  </details>
+{{end}}
+</main>
+
+<script>{{.JS}}</script>
+</body>
+</html>
