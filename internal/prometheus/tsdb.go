@@ -94,8 +94,16 @@ func (c *Client) BuildInfo(ctx context.Context) (*BuildInfo, error) {
 	return cached, nil
 }
 
-// RuntimeInfo fetches and parses /api/v1/status/runtimeinfo.
+// RuntimeInfo fetches and parses /api/v1/status/runtimeinfo. Returns
+// ErrNotSupported when the detected backend does not implement the
+// endpoint (e.g. VictoriaMetrics).
 func (c *Client) RuntimeInfo(ctx context.Context) (*RuntimeInfo, error) {
+	if err := c.ensureFlavor(ctx); err != nil {
+		return nil, err
+	}
+	if c.Flavor() == FlavorVictoria {
+		return nil, ErrNotSupported
+	}
 	body, err := c.do(ctx, http.MethodGet, "/api/v1/status/runtimeinfo", nil)
 	if err != nil {
 		return nil, err

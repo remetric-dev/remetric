@@ -52,7 +52,7 @@ func TestClient_RuntimeInfo_Parses(t *testing.T) {
 	srv := promtest.NewServer(t, "testdata", promtest.Routes{
 		"/api/v1/status/runtimeinfo": "runtimeinfo.json",
 	})
-	c, _ := prom.New(srv.URL)
+	c, _ := prom.New(srv.URL, prom.WithFlavorHint(prom.FlavorProm))
 	got, err := c.RuntimeInfo(context.Background())
 	if err != nil {
 		t.Fatalf("RuntimeInfo err = %v", err)
@@ -194,5 +194,25 @@ func TestBuildInfo_ConcurrentFallbackIsRaceFree(t *testing.T) {
 	// fetches before the cache is populated. The contract is: first writer wins.
 	if hits < 1 {
 		t.Errorf("expected at least 1 HTTP hit, got %d", hits)
+	}
+}
+
+func TestRuntimeInfo_VMReturnsErrNotSupported(t *testing.T) {
+	var hits int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits++
+		w.WriteHeader(404)
+	}))
+	defer srv.Close()
+	c, err := prom.New(srv.URL, prom.WithFlavorHint(prom.FlavorVictoria))
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	_, err = c.RuntimeInfo(context.Background())
+	if !errors.Is(err, prom.ErrNotSupported) {
+		t.Errorf("err = %v, want ErrNotSupported", err)
+	}
+	if hits != 0 {
+		t.Errorf("RuntimeInfo should not hit the server on VM flavor; hits=%d", hits)
 	}
 }
