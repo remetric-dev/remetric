@@ -1,0 +1,18 @@
+groups:
+  - name: remetric_e2e
+    interval: 5s
+    rules:
+      - alert: RemetricNeverFired
+        expr: vector(0) > 0
+        for: 0s
+        labels:
+          severity: info
+        annotations:
+          summary: "Always false — should never fire."
+      - alert: RemetricAlwaysFiring
+        expr: vector(1)
+        for: 0s
+        labels:
+          severity: warning
+        annotations:
+          summary: "Always true — should fire continuously."

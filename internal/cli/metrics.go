@@ -16,29 +16,28 @@ import (
 	"github.com/remetric-dev/remetric/internal/findings"
 )
 
-func newUnusedCmd() *cobra.Command {
+func newMetricsCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "unused",
-		Short: "Find unused parts of the stack (metrics, dashboards, alerts).",
-		Long: `Unused subcommands compare what Prometheus ingests against what
-Grafana / alert rules / recording rules actually reference, then
-suggest metric_relabel_configs snippets to drop the orphans.
+		Use:   "metrics",
+		Short: "Inspect metric-level findings (unused metrics).",
+		Long: `Metrics subcommands compare what Prometheus ingests against what
+Grafana / alert rules / recording rules actually reference.
 
 Subcommands:
-  metrics  Flag metric names with no observed consumer.`,
+  unused  Flag metric names with no observed consumer.`,
 	}
-	cmd.AddCommand(newUnusedMetricsCmd())
+	cmd.AddCommand(newMetricsUnusedCmd())
 	return cmd
 }
 
 //nolint:gocyclo // RunE closure is straight-line config-gathering; no branching to flatten
-func newUnusedMetricsCmd() *cobra.Command {
+func newMetricsUnusedCmd() *cobra.Command {
 	var (
 		limit       int
 		minSeverity string
 	)
 	cmd := &cobra.Command{
-		Use:   "metrics",
+		Use:   "unused",
 		Short: "List ingested metrics with no Grafana / alert / recording-rule reference.",
 		Long: `Compares the set of ingested metric names with the union of
 metrics referenced by Grafana dashboards, alert rule expressions,
@@ -48,13 +47,13 @@ names themselves).
 Without --grafana, dashboards are not consulted; only alert and
 recording rule references count toward "used".`,
 		Example: `  # Diff against Prometheus rules only
-  remetric unused metrics --prometheus http://localhost:9090
+  remetric metrics unused --prometheus http://localhost:9090
 
   # Include Grafana dashboards
-  remetric unused metrics --prometheus http://localhost:9090 --grafana http://localhost:3000
+  remetric metrics unused --prometheus http://localhost:9090 --grafana http://localhost:3000
 
   # JSON output
-  remetric unused metrics --prometheus http://localhost:9090 --output json`,
+  remetric metrics unused --prometheus http://localhost:9090 --output json`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
 			cfg := configFrom(ctx)
@@ -74,15 +73,15 @@ recording rule references count toward "used".`,
 				defer cancel()
 			}
 
-			prom, err := buildPromClient(cfg, "remetric/unused-metrics")
+			prom, err := buildPromClient(cfg, "remetric/metrics-unused")
 			if err != nil {
 				return &exitError{code: 2, err: err}
 			}
-			graf, err := buildGrafanaClient(cfg, "remetric/unused-metrics")
+			graf, err := buildGrafanaClient(cfg, "remetric/metrics-unused")
 			if err != nil {
 				return &exitError{code: 2, err: err}
 			}
-			vmalert, err := buildVMAlertClient(cfg, "remetric/unused-metrics")
+			vmalert, err := buildVMAlertClient(cfg, "remetric/metrics-unused")
 			if err != nil {
 				return &exitError{code: 2, err: err}
 			}
