@@ -53,3 +53,9 @@ func WithLogger(l *slog.Logger) Option {
 		c.logger = l
 	}
 }
+
+// WithFlavorHint forces the backend flavor and skips detection.
+// FlavorUnknown means "auto-detect" (the default).
+func WithFlavorHint(f Flavor) Option {
+	return func(c *Client) { c.flavorHint = f }
+}
