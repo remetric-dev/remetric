@@ -88,12 +88,18 @@ func runDoctor(cmd *cobra.Command, _ []string) error {
 	} else {
 		rep.Version = bi.Version
 		rep.Backend = client.Flavor().String()
-		rep.VersionOK = compareVersions(bi.Version, minPrometheusVersion) >= 0
-		if !rep.VersionOK {
-			rep.Errors = append(rep.Errors, findings.DoctorError{
-				Check: "version",
-				Error: fmt.Sprintf("prometheus %s is below minimum %s", bi.Version, minPrometheusVersion),
-			})
+		// The Prometheus minimum-version gate only applies to a Prometheus
+		// backend; VictoriaMetrics ships an unrelated v1.x version line.
+		if client.Flavor() == prom.FlavorVictoria {
+			rep.VersionOK = true
+		} else {
+			rep.VersionOK = compareVersions(bi.Version, minPrometheusVersion) >= 0
+			if !rep.VersionOK {
+				rep.Errors = append(rep.Errors, findings.DoctorError{
+					Check: "version",
+					Error: fmt.Sprintf("prometheus %s is below minimum %s", bi.Version, minPrometheusVersion),
+				})
+			}
 		}
 	}
 
@@ -226,6 +232,7 @@ func compareVersions(a, b string) int {
 }
 
 func versionParts(s string) [3]int {
+	s = strings.TrimPrefix(s, "v")
 	var out [3]int
 	parts := strings.Split(strings.SplitN(s, "-", 2)[0], ".")
 	for i := 0; i < 3 && i < len(parts); i++ {

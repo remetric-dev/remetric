@@ -155,16 +155,18 @@ func TestDoctor_VictoriaBackend_PrintsLabelAndRuntimeNA(t *testing.T) {
 	defer srv.Close()
 
 	var out bytes.Buffer
-	// Exit code is not asserted: the VM build version string ("v1.99.0")
-	// does not match Prometheus's minimum-version heuristic and triggers
-	// a version FAIL. T19 is about the backend label and runtime-info
-	// rendering, not the version gate, which is tracked separately.
-	_ = cli.ExecuteWith(cli.Args{
+	// The Prometheus minimum-version gate is skipped on VictoriaMetrics,
+	// so a healthy VM target returns exit code 0 even though VM's "v1.x"
+	// version line would not satisfy Prometheus's "2.30+" heuristic.
+	code := cli.ExecuteWith(cli.Args{
 		Version: "test",
 		Args:    []string{"doctor", "--prometheus", srv.URL, "--backend", "victoria", "--no-color"},
 		Stdout:  &out,
 		Stderr:  &out,
 	})
+	if code != 0 {
+		t.Errorf("exit = %d, want 0\nout:\n%s", code, out.String())
+	}
 	body := out.String()
 	if !strings.Contains(body, "backend:      victoria") {
 		t.Errorf("doctor output missing 'backend: victoria' line:\n%s", body)
