@@ -1,0 +1,46 @@
+# remetric report
+
+- Target: http://prom:9090
+- Prometheus version: 2.51.2
+- Scanned: 2026-05-21T12:00:00Z
+- Version: v0.1.0
+
+## Warnings
+
+- vmalert not configured
+
+## Summary
+
+| Severity | Count |
+|----------|-------|
+| Critical | 1 |
+| High | 0 |
+| Medium | 1 |
+| Low | 0 |
+
+Potential series reduction: **240000**
+
+## Findings
+
+### alert_hygiene
+
+#### [MEDIUM] Alert NoiseAlert never fired in 168h0m0s
+
+no firing samples in 168h0m0s lookback
+
+```yaml
+- alert: NoiseAlert
+  expr: up == 0
+```
+
+### cardinality
+
+#### [CRITICAL] http_requests_total: 250k series
+
+user_id is unbounded
+
+```yaml
+- action: labeldrop
+  regex: user_id
+```
+
