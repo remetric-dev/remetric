@@ -32,7 +32,8 @@ type Client struct {
 
 	flavor     Flavor
 	flavorHint Flavor
-	flavorOnce sync.Once
+	flavorMu   sync.Mutex
+	flavorDone bool
 	flavorErr  error
 
 	sem chan struct{}
