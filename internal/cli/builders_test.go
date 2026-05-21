@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/remetric-dev/remetric/internal/config"
+	prom "github.com/remetric-dev/remetric/internal/prometheus"
 )
 
 func TestBuildVMAlertClient_NilWhenURLEmpty(t *testing.T) {
@@ -73,6 +74,31 @@ func TestBuildVMAlertClient_InvalidBasicAuthRejected(t *testing.T) {
 	}
 	if _, err := buildVMAlertClient(cfg, "test-agent"); err == nil {
 		t.Errorf("expected error for malformed basic auth")
+	}
+}
+
+func TestBuildPromClient_BackendHintApplied(t *testing.T) {
+	cases := []struct {
+		backend string
+		want    prom.Flavor
+	}{
+		{"", prom.FlavorUnknown},
+		{"auto", prom.FlavorUnknown},
+		{"prometheus", prom.FlavorProm},
+		{"victoria", prom.FlavorVictoria},
+	}
+	for _, tc := range cases {
+		cfg := &config.Config{
+			Prometheus: config.PrometheusConfig{URL: "http://localhost:9090", MaxInFlight: 1},
+			Backend:    tc.backend,
+		}
+		c, err := buildPromClient(cfg, "test-agent")
+		if err != nil {
+			t.Fatalf("backend=%q: %v", tc.backend, err)
+		}
+		if got := c.FlavorHint(); got != tc.want {
+			t.Errorf("backend=%q: FlavorHint() = %v, want %v", tc.backend, got, tc.want)
+		}
 	}
 }
 
