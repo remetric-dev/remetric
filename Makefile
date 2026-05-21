@@ -9,7 +9,7 @@ LOCAL_PREFIX     := github.com/remetric-dev/remetric
 VERSION          ?= $(shell git describe --tags --dirty --always 2>/dev/null || echo dev)
 LDFLAGS          := -s -w -X main.version=$(VERSION)
 
-.PHONY: help build test test-race fmt vet lint vuln clean e2e-up e2e-down e2e release-check release-snapshot docker-build install-check
+.PHONY: help build test test-race fmt vet lint vuln clean e2e-up e2e-down e2e e2e-vm-up e2e-vm-down e2e-vm release-check release-snapshot docker-build install-check
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*## / {printf "  %-14s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -53,6 +53,19 @@ e2e-down: ## Tear down e2e stack
 
 e2e: ## Run e2e tests (requires e2e-up)
 	$(GO) test -tags=e2e -count=1 ./e2e/...
+
+e2e-vm-up: ## Start e2e VictoriaMetrics stack
+	docker compose -f e2e/docker-compose-vm.yml up -d
+	@echo "waiting for VM stack..."
+	@until curl -sf http://localhost:8428/-/healthy >/dev/null 2>&1; do sleep 1; done
+	@until curl -sf http://localhost:8880/api/v1/rules >/dev/null 2>&1; do sleep 1; done
+	@echo "VM stack ready"
+
+e2e-vm-down: ## Tear down e2e VictoriaMetrics stack
+	docker compose -f e2e/docker-compose-vm.yml down -v
+
+e2e-vm: ## Run e2e VictoriaMetrics tests (requires e2e-vm-up)
+	$(GO) test -tags=e2e -count=1 ./e2e/... -run TestE2E_VM
 
 release-check: ## Verify .goreleaser.yml is well-formed
 	$(GO) run github.com/goreleaser/goreleaser/v2@$(GORELEASER_VERSION) check

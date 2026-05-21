@@ -1,6 +1,7 @@
 # e2e/docker-compose-vm.yml — VictoriaMetrics + vmalert + cardinality-bomb.
 # Brought up by `make e2e-vm-up`. Coexists with the main e2e stack via
 # distinct container names and host ports.
+name: e2e-vm
 services:
   victoria:
     image: victoriametrics/victoria-metrics:v1.99.0
