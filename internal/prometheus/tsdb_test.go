@@ -71,7 +71,7 @@ func TestClient_TSDBStats_Parses(t *testing.T) {
 	srv := promtest.NewServer(t, "testdata", promtest.Routes{
 		"/api/v1/status/tsdb": "tsdb_stats_typical.json",
 	})
-	c, _ := prom.New(srv.URL)
+	c, _ := prom.New(srv.URL, prom.WithFlavorHint(prom.FlavorProm))
 	got, err := c.TSDBStats(context.Background(), 20)
 	if err != nil {
 		t.Fatalf("TSDBStats err = %v", err)
