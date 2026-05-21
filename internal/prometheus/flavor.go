@@ -42,6 +42,15 @@ func (c *Client) Flavor() Flavor {
 	return c.flavor
 }
 
+// FlavorHint returns the flavor hint set via WithFlavorHint, or
+// FlavorUnknown if no hint was set. Useful for callers that want to
+// verify which hint a Client was constructed with.
+func (c *Client) FlavorHint() Flavor {
+	c.flavorMu.Lock()
+	defer c.flavorMu.Unlock()
+	return c.flavorHint
+}
+
 // ensureFlavor lazily detects the backend dialect. The first successful
 // or terminal result is cached for the lifetime of the Client. Transient
 // ctx errors (Canceled, DeadlineExceeded) are NOT cached so that callers

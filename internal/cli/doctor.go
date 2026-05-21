@@ -148,6 +148,14 @@ func authMethodFor(cfg *config.Config) string {
 
 func buildPromClient(cfg *config.Config, ua string) (*prom.Client, error) {
 	opts := []prom.Option{prom.WithUserAgent(ua), prom.WithMaxInFlight(cfg.Prometheus.MaxInFlight)}
+	switch strings.ToLower(cfg.Backend) {
+	case "", "auto":
+		// no hint — detection runs at first use
+	case "prometheus":
+		opts = append(opts, prom.WithFlavorHint(prom.FlavorProm))
+	case "victoria":
+		opts = append(opts, prom.WithFlavorHint(prom.FlavorVictoria))
+	}
 	if cfg.Prometheus.Token != "" {
 		opts = append(opts, prom.WithBearerToken(cfg.Prometheus.Token))
 	}
