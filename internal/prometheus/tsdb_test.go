@@ -105,3 +105,50 @@ func TestClient_BuildInfo_Auth401Wraps(t *testing.T) {
 		t.Errorf("err = %v, want wraps ErrAuth", err)
 	}
 }
+
+func TestBuildInfo_VMSingleBinary(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v1/status/buildinfo" {
+			http.Error(w, "wrong path", 500)
+			return
+		}
+		_, _ = w.Write([]byte(`{"status":"success","data":{"version":"v1.99.0"}}`))
+	}))
+	defer srv.Close()
+	c, err := prom.New(srv.URL, prom.WithFlavorHint(prom.FlavorVictoria))
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	bi, err := c.BuildInfo(context.Background())
+	if err != nil {
+		t.Fatalf("BuildInfo: %v", err)
+	}
+	if bi.Version != "v1.99.0" {
+		t.Errorf("Version = %q, want %q", bi.Version, "v1.99.0")
+	}
+	if bi.Revision != "" || bi.GoVersion != "" {
+		t.Errorf("VM build info should leave Revision/GoVersion empty, got Revision=%q GoVersion=%q", bi.Revision, bi.GoVersion)
+	}
+}
+
+func TestBuildInfo_UsesDetectionCache(t *testing.T) {
+	var hits int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits++
+		_, _ = w.Write([]byte(`{"status":"success","data":{"version":"v1.99.0"}}`))
+	}))
+	defer srv.Close()
+	c, err := prom.New(srv.URL)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	if _, err := c.BuildInfo(context.Background()); err != nil {
+		t.Fatalf("BuildInfo: %v", err)
+	}
+	if _, err := c.BuildInfo(context.Background()); err != nil {
+		t.Fatalf("BuildInfo: %v", err)
+	}
+	if hits != 1 {
+		t.Errorf("buildinfo HTTP hits = %d, want 1", hits)
+	}
+}

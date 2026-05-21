@@ -64,7 +64,16 @@ func (c *Client) Ping(ctx context.Context) error {
 }
 
 // BuildInfo fetches and parses /api/v1/status/buildinfo.
+// When flavor detection has already populated the cache, the cached result
+// is returned without issuing a second HTTP request.
 func (c *Client) BuildInfo(ctx context.Context) (*BuildInfo, error) {
+	if err := c.ensureFlavor(ctx); err != nil {
+		return nil, err
+	}
+	if c.buildInfoCache != nil {
+		return c.buildInfoCache, nil
+	}
+	// Fallback path: cache wasn't populated (e.g., flavor hint skipped detection).
 	body, err := c.do(ctx, http.MethodGet, "/api/v1/status/buildinfo", nil)
 	if err != nil {
 		return nil, err
@@ -73,7 +82,8 @@ func (c *Client) BuildInfo(ctx context.Context) (*BuildInfo, error) {
 	if err := json.Unmarshal(body, &env); err != nil {
 		return nil, fmt.Errorf("remetric: parse buildinfo: %w", err)
 	}
-	return &env.Data, nil
+	c.buildInfoCache = &env.Data
+	return c.buildInfoCache, nil
 }
 
 // RuntimeInfo fetches and parses /api/v1/status/runtimeinfo.

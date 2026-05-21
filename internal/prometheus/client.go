@@ -30,11 +30,12 @@ type Client struct {
 	userAgent     string
 	logger        *slog.Logger
 
-	flavor     Flavor
-	flavorHint Flavor
-	flavorMu   sync.Mutex
-	flavorDone bool
-	flavorErr  error
+	flavor         Flavor
+	flavorHint     Flavor
+	flavorMu       sync.Mutex
+	flavorDone     bool
+	flavorErr      error
+	buildInfoCache *BuildInfo
 
 	sem chan struct{}
 }
