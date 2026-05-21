@@ -4,9 +4,12 @@
 package prometheus
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"math"
+	"net/http"
+	"net/url"
 	"strconv"
 	"time"
 )
@@ -60,4 +63,26 @@ func (s *SamplePair) UnmarshalJSON(data []byte) error {
 	}
 	s.Value = v
 	return nil
+}
+
+// QueryRange calls /api/v1/query_range. step must be > 0.
+// start and end are inclusive; they're sent as Unix seconds (no fractional).
+func (c *Client) QueryRange(ctx context.Context, expr string, start, end time.Time, step time.Duration) (*QueryRangeResult, error) {
+	if step <= 0 {
+		return nil, fmt.Errorf("remetric: %w: step must be > 0", ErrInvalidArgument)
+	}
+	q := url.Values{}
+	q.Set("query", expr)
+	q.Set("start", strconv.FormatInt(start.Unix(), 10))
+	q.Set("end", strconv.FormatInt(end.Unix(), 10))
+	q.Set("step", strconv.FormatInt(int64(step.Seconds()), 10))
+	body, err := c.do(ctx, http.MethodGet, "/api/v1/query_range?"+q.Encode(), nil)
+	if err != nil {
+		return nil, err
+	}
+	var env envelope[QueryRangeResult]
+	if err := json.Unmarshal(body, &env); err != nil {
+		return nil, fmt.Errorf("remetric: parse query_range: %w", err)
+	}
+	return &env.Data, nil
 }
