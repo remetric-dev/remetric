@@ -8,7 +8,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/remetric-dev/remetric/internal/analyzers"
 	"github.com/remetric-dev/remetric/internal/analyzers/cardinality"
@@ -230,5 +232,134 @@ func TestCardinalityAnalyzer_PerMetricErrorAggregation(t *testing.T) {
 	}
 	if !strings.Contains(res.Warnings[0], "cardinality:") {
 		t.Errorf("Warnings[0] = %q, want cardinality: prefix", res.Warnings[0])
+	}
+}
+
+func TestCardinalityAnalyzer_WorstLabel_PicksBestAmongSuccesses(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case strings.HasPrefix(r.URL.Path, "/api/v1/status/tsdb"):
+			_, _ = w.Write([]byte(`{"status":"success","data":{
+				"headStats":{"numSeries":1000},
+				"seriesCountByMetricName":[{"name":"m","value":500}]
+			}}`))
+		case r.URL.Path == "/api/v1/labels":
+			_, _ = w.Write([]byte(`{"status":"success","data":["a","b","c"]}`))
+		case r.URL.Path == "/api/v1/label/a/values":
+			// 3 values
+			_, _ = w.Write([]byte(`{"status":"success","data":["1","2","3"]}`))
+		case r.URL.Path == "/api/v1/label/b/values":
+			// HTTP 500 - this label "fails"
+			w.WriteHeader(http.StatusInternalServerError)
+		case r.URL.Path == "/api/v1/label/c/values":
+			// 10 values - the largest successful
+			_, _ = w.Write([]byte(`{"status":"success","data":["1","2","3","4","5","6","7","8","9","10"]}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	a := cardinality.New()
+	res, err := a.Analyze(context.Background(), newDeps(t, srv.URL))
+	if err != nil {
+		t.Fatalf("Analyze: %v", err)
+	}
+	if len(res.Findings) != 1 {
+		t.Fatalf("Findings = %d, want 1", len(res.Findings))
+	}
+	if got := res.Findings[0].Evidence.Label; got != "c" {
+		t.Errorf("Evidence.Label = %q, want %q (largest of successes)", got, "c")
+	}
+	if len(res.Warnings) != 1 || !strings.Contains(res.Warnings[0], `"b"`) {
+		t.Errorf("Warnings = %v, want 1 entry mentioning label b", res.Warnings)
+	}
+}
+
+func TestCardinalityAnalyzer_WorstLabel_AllLabelsFailSkipsMetric(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case strings.HasPrefix(r.URL.Path, "/api/v1/status/tsdb"):
+			_, _ = w.Write([]byte(`{"status":"success","data":{
+				"headStats":{"numSeries":1000},
+				"seriesCountByMetricName":[{"name":"m","value":500}]
+			}}`))
+		case r.URL.Path == "/api/v1/labels":
+			_, _ = w.Write([]byte(`{"status":"success","data":["x","y"]}`))
+		case r.URL.Path == "/api/v1/label/x/values", r.URL.Path == "/api/v1/label/y/values":
+			w.WriteHeader(http.StatusInternalServerError)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	a := cardinality.New()
+	res, err := a.Analyze(context.Background(), newDeps(t, srv.URL))
+	if err != nil {
+		t.Fatalf("Analyze: %v", err)
+	}
+	if len(res.Findings) != 0 {
+		t.Errorf("Findings = %+v, want empty (no successful label)", res.Findings)
+	}
+	if len(res.Warnings) != 2 {
+		t.Errorf("Warnings count = %d, want 2 (one per failed label)", len(res.Warnings))
+	}
+}
+
+func TestCardinalityAnalyzer_WorstLabel_HonoursPromSemaphore(t *testing.T) {
+	const maxInFlight = 2
+	var (
+		mu             sync.Mutex
+		concurrent     int
+		peakConcurrent int
+	)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case strings.HasPrefix(r.URL.Path, "/api/v1/status/tsdb"):
+			_, _ = w.Write([]byte(`{"status":"success","data":{
+				"headStats":{"numSeries":1000},
+				"seriesCountByMetricName":[{"name":"m","value":500}]
+			}}`))
+		case r.URL.Path == "/api/v1/labels":
+			_, _ = w.Write([]byte(`{"status":"success","data":["a","b","c","d","e","f","g","h"]}`))
+		case strings.HasPrefix(r.URL.Path, "/api/v1/label/") && strings.HasSuffix(r.URL.Path, "/values"):
+			mu.Lock()
+			concurrent++
+			if concurrent > peakConcurrent {
+				peakConcurrent = concurrent
+			}
+			mu.Unlock()
+			time.Sleep(50 * time.Millisecond) // hold the slot so contention is observable
+			mu.Lock()
+			concurrent--
+			mu.Unlock()
+			_, _ = w.Write([]byte(`{"status":"success","data":["v1","v2"]}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	c, err := prom.New(srv.URL, prom.WithMaxInFlight(maxInFlight))
+	if err != nil {
+		t.Fatalf("prom.New: %v", err)
+	}
+	a := cardinality.New()
+	_, err = a.Analyze(context.Background(), analyzers.Deps{Prom: c, Limits: analyzers.DefaultLimits()})
+	if err != nil {
+		t.Fatalf("Analyze: %v", err)
+	}
+	mu.Lock()
+	got := peakConcurrent
+	mu.Unlock()
+	if got > maxInFlight {
+		t.Errorf("peak concurrent = %d, must be <= %d", got, maxInFlight)
+	}
+	if got < 2 {
+		t.Errorf("peak concurrent = %d, want >= 2 (parallelism actually happened)", got)
 	}
 }
