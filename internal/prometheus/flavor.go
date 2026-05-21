@@ -83,7 +83,10 @@ func (c *Client) detectFlavor(ctx context.Context) (Flavor, error) {
 			case http.StatusNotFound:
 				return FlavorVictoria, nil
 			case http.StatusUnauthorized, http.StatusForbidden:
-				return FlavorUnknown, ErrFlavorDetectFailed
+				// Preserve ErrAuth alongside ErrFlavorDetectFailed so callers
+				// of BuildInfo() (which now routes through ensureFlavor) can
+				// still distinguish auth failures via errors.Is.
+				return FlavorUnknown, errors.Join(ErrFlavorDetectFailed, ErrAuth)
 			}
 		}
 		return FlavorUnknown, ErrFlavorDetectFailed
@@ -93,6 +96,9 @@ func (c *Client) detectFlavor(ctx context.Context) (Flavor, error) {
 		c.logger.Warn("buildinfo parse failed, defaulting to prometheus flavor", "err", err)
 		return FlavorProm, nil
 	}
+	// Cache the parsed BuildInfo so callers of Client.BuildInfo() reuse this fetch.
+	// Safe without a separate lock: detectFlavor runs under c.flavorMu via ensureFlavor.
+	c.buildInfoCache = &env.Data
 	if env.Data.Revision != "" && env.Data.GoVersion != "" {
 		return FlavorProm, nil
 	}
