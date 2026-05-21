@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/remetric-dev/remetric/internal/analyzers"
+	"github.com/remetric-dev/remetric/internal/analyzers/alerthygiene"
 	"github.com/remetric-dev/remetric/internal/analyzers/cardinality"
 	"github.com/remetric-dev/remetric/internal/analyzers/labelpattern"
 	"github.com/remetric-dev/remetric/internal/analyzers/unusedmetrics"
@@ -26,9 +27,9 @@ func newScanCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "scan",
 		Short: "Run every available analyzer and emit a unified report.",
-		Long: `Orchestrates cardinality, label-pattern, and (if --grafana is set)
-unused-metrics analyzers. Findings are merged into a single
-findings.Report shape — see the JSON schema in the spec.`,
+		Long: `Orchestrates cardinality, label-pattern, alert-hygiene, and
+(if --grafana is set) unused-metrics analyzers. Findings are merged
+into a single findings.Report shape — see the JSON schema in the spec.`,
 		Example: `  # Full scan with Grafana
   remetric scan --prometheus http://localhost:9090 --grafana http://localhost:3000
 
@@ -78,7 +79,12 @@ findings.Report shape — see the JSON schema in the spec.`,
 				all      []findings.Finding
 				warnings []string
 			)
-			runners := []analyzers.Analyzer{cardinality.New(), labelpattern.New(), unusedmetrics.New()}
+			runners := []analyzers.Analyzer{
+				cardinality.New(),
+				labelpattern.New(),
+				unusedmetrics.New(),
+				alerthygiene.New(alerthygiene.Config{}),
+			}
 			for _, a := range runners {
 				res, err := a.Analyze(ctx, deps)
 				if err != nil {
