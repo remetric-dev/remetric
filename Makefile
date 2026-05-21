@@ -9,7 +9,7 @@ LOCAL_PREFIX     := github.com/remetric-dev/remetric
 VERSION          ?= $(shell git describe --tags --dirty --always 2>/dev/null || echo dev)
 LDFLAGS          := -s -w -X main.version=$(VERSION)
 
-.PHONY: help build test test-race fmt vet lint vuln clean e2e-up e2e-down e2e e2e-vm-up e2e-vm-down e2e-vm release-check release-snapshot docker-build install-check
+.PHONY: help build test test-race fmt vet lint vuln clean e2e-up e2e-down e2e e2e-vm-up e2e-vm-down e2e-vm e2e-alerts release-check release-snapshot docker-build install-check
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*## / {printf "  %-14s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -53,6 +53,10 @@ e2e-down: ## Tear down e2e stack
 
 e2e: ## Run e2e tests (requires e2e-up)
 	$(GO) test -tags=e2e -count=1 ./e2e/...
+
+e2e-alerts: ## Run alert-hygiene e2e tests (requires e2e-up + warm-up time)
+	@echo "Note: ensure 'make e2e-up' has been running for ~2 minutes for alert samples to accumulate"
+	$(GO) test -tags=e2e -count=1 ./e2e/... -run "TestE2E_(Alerts|Report)"
 
 e2e-vm-up: ## Start e2e VictoriaMetrics stack
 	docker compose -f e2e/docker-compose-vm.yml up -d
