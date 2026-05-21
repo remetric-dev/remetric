@@ -270,3 +270,47 @@ func TestConfig_VMAlertFlags(t *testing.T) {
 		t.Errorf("VMAlert.TLSSkipVerify = false, want true")
 	}
 }
+
+func TestConfig_Validate_PromBothAuthRejected(t *testing.T) {
+	cfg := &config.Config{
+		Prometheus: config.PrometheusConfig{Token: "tok", BasicAuth: "user:pass"},
+		Backend:    "auto",
+	}
+	if err := cfg.Validate(); err == nil {
+		t.Errorf("expected error for both prom auth flags set")
+	}
+}
+
+func TestConfig_Validate_VMAlertBothAuthRejected(t *testing.T) {
+	cfg := &config.Config{
+		VMAlert: config.VMAlertConfig{Token: "tok", BasicAuth: "user:pass"},
+		Backend: "auto",
+	}
+	if err := cfg.Validate(); err == nil {
+		t.Errorf("expected error for both vmalert auth flags set")
+	}
+}
+
+func TestConfig_Validate_UnknownBackendRejected(t *testing.T) {
+	cfg := &config.Config{Backend: "mimir"}
+	if err := cfg.Validate(); err == nil {
+		t.Errorf("expected error for unknown backend %q", cfg.Backend)
+	}
+}
+
+func TestConfig_Validate_AcceptsValidConfig(t *testing.T) {
+	cases := []*config.Config{
+		{Backend: "auto"},
+		{Backend: "prometheus"},
+		{Backend: "victoria"},
+		{Backend: ""}, // empty == auto, accepted
+		{Backend: "auto", Prometheus: config.PrometheusConfig{Token: "t"}},
+		{Backend: "auto", Prometheus: config.PrometheusConfig{BasicAuth: "u:p"}},
+		{Backend: "auto", VMAlert: config.VMAlertConfig{URL: "http://vmalert:8880", Token: "t"}},
+	}
+	for i, cfg := range cases {
+		if err := cfg.Validate(); err != nil {
+			t.Errorf("case %d: Validate() = %v, want nil", i, err)
+		}
+	}
+}

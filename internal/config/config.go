@@ -147,3 +147,22 @@ func Load(fs *pflag.FlagSet, cfgPath string) (*Config, error) {
 
 	return &cfg, nil
 }
+
+// Validate reports errors that should prevent the program from running:
+// conflicting auth options on the Prometheus or vmalert clients, and
+// unrecognized --backend values. The empty string is treated as "auto".
+func (c *Config) Validate() error {
+	if c.Prometheus.Token != "" && c.Prometheus.BasicAuth != "" {
+		return errors.New("config: --prom-token and --prom-basic-auth are mutually exclusive")
+	}
+	if c.VMAlert.Token != "" && c.VMAlert.BasicAuth != "" {
+		return errors.New("config: --vmalert-token and --vmalert-basic-auth are mutually exclusive")
+	}
+	switch c.Backend {
+	case "", "auto", "prometheus", "victoria":
+		// ok
+	default:
+		return fmt.Errorf("config: --backend %q invalid (want auto|prometheus|victoria)", c.Backend)
+	}
+	return nil
+}
