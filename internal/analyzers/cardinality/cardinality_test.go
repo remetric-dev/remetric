@@ -182,3 +182,53 @@ func TestCardinalityAnalyzer_SampleSizeBounded(t *testing.T) {
 		t.Errorf("SampleValues len = %d, want 5", n)
 	}
 }
+
+func TestCardinalityAnalyzer_PerMetricErrorAggregation(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case strings.HasPrefix(r.URL.Path, "/api/v1/status/tsdb"):
+			_, _ = w.Write([]byte(`{"status":"success","data":{
+				"headStats":{"numSeries":1000},
+				"seriesCountByMetricName":[
+					{"name":"good_metric","value":800},
+					{"name":"broken_metric","value":700}
+				]
+			}}`))
+		case r.URL.Path == "/api/v1/labels":
+			// Per-metric labels endpoint: ?match[]={__name__="..."}
+			match := r.URL.Query().Get("match[]")
+			if strings.Contains(match, `"good_metric"`) {
+				_, _ = w.Write([]byte(`{"status":"success","data":["lbl_a"]}`))
+				return
+			}
+			if strings.Contains(match, `"broken_metric"`) {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			http.Error(w, "unexpected match[]: "+match, 400)
+		case r.URL.Path == "/api/v1/label/lbl_a/values":
+			_, _ = w.Write([]byte(`{"status":"success","data":["v1","v2","v3","v4","v5"]}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	a := cardinality.New()
+	res, err := a.Analyze(context.Background(), newDeps(t, srv.URL))
+	if err != nil {
+		t.Fatalf("Analyze returned error, want graceful: %v", err)
+	}
+	// good_metric should still produce a finding (or be filtered by severity);
+	// the key assertion is no hard error AND a warning for broken_metric.
+	if len(res.Warnings) != 1 {
+		t.Fatalf("Warnings = %v, want exactly 1", res.Warnings)
+	}
+	if !strings.Contains(res.Warnings[0], `"broken_metric"`) {
+		t.Errorf("Warnings[0] = %q, want it to mention broken_metric", res.Warnings[0])
+	}
+	if !strings.Contains(res.Warnings[0], "cardinality:") {
+		t.Errorf("Warnings[0] = %q, want cardinality: prefix", res.Warnings[0])
+	}
+}

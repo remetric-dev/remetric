@@ -34,11 +34,12 @@ func (a *Analyzer) Analyze(ctx context.Context, d analyzers.Deps) (analyzers.Res
 	head := stats.HeadStats.NumSeries
 
 	var out []findings.Finding
+	var warnings []string
 	for _, m := range stats.SeriesCountByMetricName {
 		labels, err := d.Prom.LabelNamesForMetric(ctx, m.Name)
 		if err != nil {
-			// TODO(phase3): collect per-metric errors and continue rather than fail-fast.
-			return analyzers.Result{}, fmt.Errorf("cardinality: labels for %q: %w", m.Name, err)
+			warnings = append(warnings, fmt.Sprintf("cardinality: labels for %q: %v", m.Name, err))
+			continue
 		}
 
 		// TODO(phase3): parallelise per-label LabelValues calls bounded by the client semaphore.
@@ -99,7 +100,7 @@ func (a *Analyzer) Analyze(ctx context.Context, d analyzers.Deps) (analyzers.Res
 		return out[i].Evidence.SeriesCount > out[j].Evidence.SeriesCount
 	})
 
-	return analyzers.Result{Findings: out}, nil
+	return analyzers.Result{Findings: out, Warnings: warnings}, nil
 }
 
 func worstLabel(ctx context.Context, d analyzers.Deps, metric string, labels []string) (string, []string, error) {
