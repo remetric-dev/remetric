@@ -84,7 +84,7 @@ func TestAnalyzer_DiffsCorrectly(t *testing.T) {
 	}))
 	defer graf.Close()
 
-	pc, _ := prometheus.New(prom.URL)
+	pc, _ := prometheus.New(prom.URL, prometheus.WithFlavorHint(prometheus.FlavorProm))
 	gc, _ := grafana.New(graf.URL)
 
 	res, err := New().Analyze(context.Background(), analyzers.Deps{
@@ -144,7 +144,7 @@ func TestAnalyzer_GrafanaNilSkipsDashboards(t *testing.T) {
 	}))
 	defer prom.Close()
 
-	pc, _ := prometheus.New(prom.URL)
+	pc, _ := prometheus.New(prom.URL, prometheus.WithFlavorHint(prometheus.FlavorProm))
 	res, err := New().Analyze(context.Background(), analyzers.Deps{
 		Prom:   pc,
 		Graf:   nil, // explicit
@@ -197,7 +197,7 @@ func TestAnalyzer_RecordingRuleOutputUsed(t *testing.T) {
 	}))
 	defer prom.Close()
 
-	pc, _ := prometheus.New(prom.URL)
+	pc, _ := prometheus.New(prom.URL, prometheus.WithFlavorHint(prometheus.FlavorProm))
 	res, err := New().Analyze(context.Background(), analyzers.Deps{
 		Prom: pc, Graf: nil, Logger: slog.Default(), Limits: analyzers.DefaultLimits(),
 	})
@@ -254,7 +254,11 @@ func TestAnalyzer_GrafanaError(t *testing.T) {
 }
 
 func TestAnalyzer_VictoriaWithoutVMAlert_WarnsAndContinues(t *testing.T) {
-	// Prom-side serves labels + tsdb + 404 on rules. Flavor is forced Victoria.
+	// Prom-side serves labels + tsdb + an HTTP 200 empty-groups rules
+	// payload (the actual VictoriaMetrics single-node behavior). Flavor
+	// is forced Victoria. The analyzer must still surface the
+	// "rules unavailable" warning because without --vmalert we can't
+	// distinguish "no rules" from "rules live in vmalert".
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/api/v1/label/__name__/values":
@@ -262,7 +266,7 @@ func TestAnalyzer_VictoriaWithoutVMAlert_WarnsAndContinues(t *testing.T) {
 		case "/api/v1/status/tsdb":
 			_, _ = w.Write([]byte(`{"status":"success","data":{"seriesCountByMetricName":[{"name":"only_metric","value":100}]}}`))
 		case "/api/v1/rules":
-			w.WriteHeader(404)
+			_, _ = w.Write([]byte(`{"status":"success","data":{"groups":[]}}`))
 		default:
 			http.Error(w, "unexpected: "+r.URL.Path, 500)
 		}

@@ -115,11 +115,16 @@ func TestE2E_VM_UnusedWithoutVMAlert(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unused metrics failed: %v\nstdout:\n%s\nstderr:\n%s", err, stdout, stderr)
 	}
-	// VictoriaMetrics single-node serves /api/v1/rules at 200 with empty groups
-	// (not 404), so the T10 'rules unavailable' graceful-degradation branch
-	// does not fire here. The observable consequence is the same though:
-	// vmalert's recording rule for app_requests_total is invisible to the
-	// analyzer, so app_requests_total should appear in the unused findings.
+	// VictoriaMetrics single-node serves /api/v1/rules at HTTP 200 with empty
+	// groups (not 404) because recording rules live in vmalert. Without
+	// --vmalert we cannot distinguish "no rules configured" from "rules in
+	// vmalert we can't see", so the analyzer surfaces the same
+	// 'rules unavailable' graceful-degradation warning on stderr regardless
+	// of payload, and app_requests_total (used by a vmalert recording rule
+	// the analyzer can't see) shows up as unused.
+	if !strings.Contains(stderr, "rules unavailable") {
+		t.Errorf("expected 'rules unavailable' warning on stderr without --vmalert; stderr:\n%s", stderr)
+	}
 	trimmed := strings.TrimSpace(stdout)
 	if !strings.HasPrefix(trimmed, "[") {
 		// Empty-state or non-array document — skip the membership check.
