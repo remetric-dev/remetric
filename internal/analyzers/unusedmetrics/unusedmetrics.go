@@ -122,9 +122,14 @@ func collectDashboardUsage(ctx context.Context, graf *grafana.Client, used map[s
 // covers the VictoriaMetrics topology where vmselect (the main client)
 // does not serve /api/v1/rules but vmalert does.
 //
-// On VictoriaMetrics without a vmalert URL, the rule call 404s. We
-// surface that as errRulesUnavailable (a non-fatal sentinel) so
-// callers can degrade gracefully.
+// On VictoriaMetrics without a vmalert URL we surface errRulesUnavailable
+// (a non-fatal sentinel) so callers can degrade gracefully. Two paths
+// reach that sentinel: the rule call 404s (older VM builds, or non-VM
+// gateways), or it returns 200 with empty/partial groups (real VM
+// single-node behavior — vmselect serves the endpoint but recording
+// rules live in vmalert which we don't have a URL for). We cannot
+// distinguish "no rules configured anywhere" from "rules live in
+// vmalert we can't see", so we warn either way.
 func collectRuleUsage(ctx context.Context, d analyzers.Deps, used map[string]struct{}) error {
 	client := d.Prom
 	if d.VMAlert != nil {
@@ -142,6 +147,17 @@ func collectRuleUsage(ctx context.Context, d analyzers.Deps, used map[string]str
 			}
 		}
 		return fmt.Errorf("unusedmetrics: rules: %w", err)
+	}
+	// Real-world VictoriaMetrics single-node serves /api/v1/rules at HTTP
+	// 200 with `{"data":{"groups":[]}}` (or a partial view), because
+	// recording rules are owned by vmalert — a separate process. Without
+	// a --vmalert URL we cannot trust this payload to be complete, so
+	// short-circuit to the same warning the 404 path takes.
+	if d.VMAlert == nil {
+		_, _ = d.Prom.BuildInfo(ctx) // trigger flavor detection (cached)
+		if d.Prom.Flavor() == prometheus.FlavorVictoria {
+			return errRulesUnavailable
+		}
 	}
 	for _, g := range rules.Groups {
 		for _, r := range g.Rules {
