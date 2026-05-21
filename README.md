@@ -6,10 +6,10 @@ Re-metric your stack — find waste in Prometheus, Grafana & Loki.
 Prometheus server and it prints a ranked, actionable list of cardinality
 problems with suggested `metric_relabel_configs` fixes.
 
-> Status: **alpha (Phase 3 of v0.1)** — cardinality, label-pattern, and
-> unused-metric analyzers are wired up. JSON output + Grafana integration +
-> unified `remetric scan` command shipped. Alert hygiene and HTML/Markdown
-> reports come in later phases.
+> Status: **alpha (Phase 4 of v0.1)** — cardinality, label-pattern,
+> unused-metric, and alert-hygiene analyzers are wired up. JSON output +
+> Grafana integration + unified `remetric scan` command + HTML/Markdown
+> reporting shipped.
 
 ## Install
 
@@ -160,6 +160,45 @@ exist for split-credential setups; if omitted, vmalert inherits auth from
 - Cortex/Mimir-style multi-tenancy headers (`X-Scope-OrgID`) are not
   supported; URL-prefix-based tenant routing through `vmauth` works.
 
+## Alert hygiene + reports (Phase 4)
+
+remetric inspects the `ALERTS` series via `query_range` to flag alerts that
+either never fire or fire continuously (broken thresholds, alert noise).
+
+```bash
+# Alerts that did not fire in the last 7 days (default lookback)
+remetric alerts unused \
+  --prometheus http://localhost:9090
+
+# Alerts that fire >=95% of the lookback window
+remetric alerts always-firing \
+  --prometheus http://localhost:9090 \
+  --lookback 24h \
+  --step 5m
+```
+
+Tune the sampling window with `--lookback` (default `168h`) and `--step`
+(default `1h`). For VictoriaMetrics, point `--vmalert` at the vmalert API.
+
+### Unified report
+
+`remetric report` runs every analyzer and emits a single document in
+terminal, JSON, HTML, or Markdown format.
+
+```bash
+# Self-contained HTML report (opens in any browser, mobile-friendly)
+remetric report --prometheus http://localhost:9090 \
+  --format html --out report.html
+
+# Markdown for PR comments / inboxes
+remetric report --prometheus http://localhost:9090 \
+  --format markdown > report.md
+```
+
+Formats: `terminal` (default), `json`, `html`, `markdown`. Use `--out FILE`
+to write to a file, or `-` (the default) for stdout. The global `--output`
+flag is ignored by `report` — use `--format` instead.
+
 ## Commands
 
 | Command                            | What it does                                                |
@@ -169,6 +208,9 @@ exist for split-credential setups; if omitted, vmalert inherits auth from
 | `remetric cardinality labels`      | Per-metric label inventory (unique counts + sample values)  |
 | `remetric cardinality suspicious`  | Flag labels matching unbounded-identifier patterns          |
 | `remetric metrics unused`          | Ingested ∖ used metrics (needs Grafana for dashboard coverage)|
+| `remetric alerts unused`           | Alerts that never fired in the lookback window              |
+| `remetric alerts always-firing`    | Alerts firing >=95% of the lookback window                  |
+| `remetric report`                  | Run every analyzer, render terminal/json/html/markdown      |
 | `remetric scan`                    | Run every available analyzer, emit a unified Report         |
 
 Global flags (subset; see `--help` for the full list):
@@ -192,8 +234,6 @@ Global flags (subset; see `--help` for the full list):
 
 ## What's still missing in v0.1
 
-- No alert hygiene analyzer (never-fired / always-firing alerts) — Phase 4.
-- No HTML / Markdown output — Phase 4.
 - No dashboard sprawl analyzer — Phase 5.
 - No `--fail-on` flag for CI integration.
 - No Homebrew tap (binaries + Docker image already ship; see Install above).
