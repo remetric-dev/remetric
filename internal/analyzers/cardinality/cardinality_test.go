@@ -35,14 +35,14 @@ func TestCardinalityAnalyzer_TopMetric(t *testing.T) {
 	})
 
 	a := cardinality.New()
-	got, err := a.Analyze(context.Background(), newDeps(t, srv.URL))
+	res, err := a.Analyze(context.Background(), newDeps(t, srv.URL))
 	if err != nil {
 		t.Fatalf("Analyze err = %v", err)
 	}
-	if len(got) != 1 {
-		t.Fatalf("len(findings) = %d, want 1", len(got))
+	if len(res.Findings) != 1 {
+		t.Fatalf("len(findings) = %d, want 1", len(res.Findings))
 	}
-	f := got[0]
+	f := res.Findings[0]
 	if f.Severity != findings.SeverityCritical {
 		t.Errorf("Severity = %v, want Critical", f.Severity)
 	}
@@ -80,21 +80,21 @@ func TestCardinalityAnalyzer_SortsBySeverity(t *testing.T) {
 		"/api/v1/label/kind/values": "label_values_big_kind.json",
 	})
 	a := cardinality.New()
-	got, err := a.Analyze(context.Background(), newDeps(t, srv.URL))
+	res, err := a.Analyze(context.Background(), newDeps(t, srv.URL))
 	if err != nil {
 		t.Fatalf("Analyze err = %v", err)
 	}
-	if len(got) != 2 {
-		t.Fatalf("len(findings) = %d, want 2", len(got))
+	if len(res.Findings) != 2 {
+		t.Fatalf("len(findings) = %d, want 2", len(res.Findings))
 	}
-	if got[0].Severity != findings.SeverityCritical {
-		t.Errorf("first.Severity = %v, want Critical", got[0].Severity)
+	if res.Findings[0].Severity != findings.SeverityCritical {
+		t.Errorf("first.Severity = %v, want Critical", res.Findings[0].Severity)
 	}
-	if got[1].Severity != findings.SeverityHigh {
-		t.Errorf("second.Severity = %v, want High", got[1].Severity)
+	if res.Findings[1].Severity != findings.SeverityHigh {
+		t.Errorf("second.Severity = %v, want High", res.Findings[1].Severity)
 	}
-	if got[0].Metric != "big_metric_second" {
-		t.Errorf("first.Metric = %q, want big_metric_second", got[0].Metric)
+	if res.Findings[0].Metric != "big_metric_second" {
+		t.Errorf("first.Metric = %q, want big_metric_second", res.Findings[0].Metric)
 	}
 }
 
@@ -115,12 +115,12 @@ func TestCardinalityAnalyzer_EmptyTSDB(t *testing.T) {
 		"/api/v1/status/tsdb": "tsdb_empty.json",
 	})
 	a := cardinality.New()
-	got, err := a.Analyze(context.Background(), newDeps(t, srv.URL))
+	res, err := a.Analyze(context.Background(), newDeps(t, srv.URL))
 	if err != nil {
 		t.Fatalf("err = %v", err)
 	}
-	if len(got) != 0 {
-		t.Errorf("findings = %d, want 0", len(got))
+	if len(res.Findings) != 0 {
+		t.Errorf("findings = %d, want 0", len(res.Findings))
 	}
 }
 
@@ -132,16 +132,16 @@ func TestCardinalityAnalyzer_DeterministicIDs(t *testing.T) {
 		"/api/v1/label/response_code/values":         "label_values_rc.json",
 	})
 	a := cardinality.New()
-	a1, err := a.Analyze(context.Background(), newDeps(t, srv.URL))
+	r1, err := a.Analyze(context.Background(), newDeps(t, srv.URL))
 	if err != nil {
 		t.Fatalf("first run: %v", err)
 	}
-	a2, err := a.Analyze(context.Background(), newDeps(t, srv.URL))
+	r2, err := a.Analyze(context.Background(), newDeps(t, srv.URL))
 	if err != nil {
 		t.Fatalf("second run: %v", err)
 	}
-	if a1[0].ID != a2[0].ID {
-		t.Errorf("ID drift: %q vs %q", a1[0].ID, a2[0].ID)
+	if r1.Findings[0].ID != r2.Findings[0].ID {
+		t.Errorf("ID drift: %q vs %q", r1.Findings[0].ID, r2.Findings[0].ID)
 	}
 }
 
@@ -153,16 +153,16 @@ func TestCardinalityAnalyzer_ImpactUpperBound(t *testing.T) {
 		"/api/v1/label/response_code/values":         "label_values_rc.json",
 	})
 	a := cardinality.New()
-	got, err := a.Analyze(context.Background(), newDeps(t, srv.URL))
+	res, err := a.Analyze(context.Background(), newDeps(t, srv.URL))
 	if err != nil {
 		t.Fatalf("err = %v", err)
 	}
 	// 500_000 - 500_000/124 = 500000 - 4032 = 495968
-	if got[0].Impact.SeriesReduction != 495968 {
-		t.Errorf("SeriesReduction = %d, want 495968", got[0].Impact.SeriesReduction)
+	if res.Findings[0].Impact.SeriesReduction != 495968 {
+		t.Errorf("SeriesReduction = %d, want 495968", res.Findings[0].Impact.SeriesReduction)
 	}
-	if got[0].Impact.EstimationMethod != "labeldrop_upper_bound" {
-		t.Errorf("EstimationMethod = %q, want labeldrop_upper_bound", got[0].Impact.EstimationMethod)
+	if res.Findings[0].Impact.EstimationMethod != "labeldrop_upper_bound" {
+		t.Errorf("EstimationMethod = %q, want labeldrop_upper_bound", res.Findings[0].Impact.EstimationMethod)
 	}
 }
 
@@ -174,11 +174,11 @@ func TestCardinalityAnalyzer_SampleSizeBounded(t *testing.T) {
 		"/api/v1/label/response_code/values":         "label_values_rc.json",
 	})
 	a := cardinality.New()
-	got, err := a.Analyze(context.Background(), newDeps(t, srv.URL))
+	res, err := a.Analyze(context.Background(), newDeps(t, srv.URL))
 	if err != nil {
 		t.Fatalf("err = %v", err)
 	}
-	if n := len(got[0].Evidence.SampleValues); n != 5 {
+	if n := len(res.Findings[0].Evidence.SampleValues); n != 5 {
 		t.Errorf("SampleValues len = %d, want 5", n)
 	}
 }

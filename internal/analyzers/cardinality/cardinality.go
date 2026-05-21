@@ -26,10 +26,10 @@ func New() *Analyzer { return &Analyzer{} }
 func (a *Analyzer) Name() string { return "cardinality" }
 
 // Analyze implements analyzers.Analyzer.
-func (a *Analyzer) Analyze(ctx context.Context, d analyzers.Deps) ([]findings.Finding, error) {
+func (a *Analyzer) Analyze(ctx context.Context, d analyzers.Deps) (analyzers.Result, error) {
 	stats, err := d.Prom.TSDBStats(ctx, d.Limits.TopMetrics)
 	if err != nil {
-		return nil, fmt.Errorf("cardinality: tsdb stats: %w", err)
+		return analyzers.Result{}, fmt.Errorf("cardinality: tsdb stats: %w", err)
 	}
 	head := stats.HeadStats.NumSeries
 
@@ -38,13 +38,13 @@ func (a *Analyzer) Analyze(ctx context.Context, d analyzers.Deps) ([]findings.Fi
 		labels, err := d.Prom.LabelNamesForMetric(ctx, m.Name)
 		if err != nil {
 			// TODO(phase3): collect per-metric errors and continue rather than fail-fast.
-			return nil, fmt.Errorf("cardinality: labels for %q: %w", m.Name, err)
+			return analyzers.Result{}, fmt.Errorf("cardinality: labels for %q: %w", m.Name, err)
 		}
 
 		// TODO(phase3): parallelise per-label LabelValues calls bounded by the client semaphore.
 		topLabel, topValues, err := worstLabel(ctx, d, m.Name, labels)
 		if err != nil {
-			return nil, err
+			return analyzers.Result{}, err
 		}
 		if topLabel == "" {
 			continue
@@ -57,7 +57,7 @@ func (a *Analyzer) Analyze(ctx context.Context, d analyzers.Deps) ([]findings.Fi
 
 		fixCfg, err := renderFix(m.Name, topLabel)
 		if err != nil {
-			return nil, fmt.Errorf("cardinality: render fix: %w", err)
+			return analyzers.Result{}, fmt.Errorf("cardinality: render fix: %w", err)
 		}
 
 		card := max(int64(len(topValues)), 1)
@@ -99,7 +99,7 @@ func (a *Analyzer) Analyze(ctx context.Context, d analyzers.Deps) ([]findings.Fi
 		return out[i].Evidence.SeriesCount > out[j].Evidence.SeriesCount
 	})
 
-	return out, nil
+	return analyzers.Result{Findings: out}, nil
 }
 
 func worstLabel(ctx context.Context, d analyzers.Deps, metric string, labels []string) (string, []string, error) {
