@@ -197,3 +197,76 @@ func TestConfig_GrafanaEnvOverride(t *testing.T) {
 		t.Errorf("Token = %q, want %q", cfg.Grafana.Token, "envtok")
 	}
 }
+
+func TestConfig_VMAlertFromEnv(t *testing.T) {
+	t.Setenv("REMETRIC_VMALERT_URL", "http://vmalert:8880")
+	t.Setenv("REMETRIC_VMALERT_TOKEN", "tok")
+	t.Setenv("REMETRIC_BACKEND", "victoria")
+	fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
+	config.BindFlags(fs)
+	if err := fs.Parse(nil); err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	cfg, err := config.Load(fs, "")
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.Backend != "victoria" {
+		t.Errorf("Backend = %q, want %q", cfg.Backend, "victoria")
+	}
+	if cfg.VMAlert.URL != "http://vmalert:8880" {
+		t.Errorf("VMAlert.URL = %q, want %q", cfg.VMAlert.URL, "http://vmalert:8880")
+	}
+	if cfg.VMAlert.Token != "tok" {
+		t.Errorf("VMAlert.Token = %q, want %q", cfg.VMAlert.Token, "tok")
+	}
+}
+
+func TestConfig_BackendDefault(t *testing.T) {
+	fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
+	config.BindFlags(fs)
+	if err := fs.Parse(nil); err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	cfg, err := config.Load(fs, "")
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.Backend != "auto" {
+		t.Errorf("Backend default = %q, want %q", cfg.Backend, "auto")
+	}
+}
+
+func TestConfig_VMAlertFlags(t *testing.T) {
+	fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
+	config.BindFlags(fs)
+	args := []string{
+		"--backend", "victoria",
+		"--vmalert", "http://vmalert.example:8880",
+		"--vmalert-token", "flagtok",
+		"--vmalert-basic-auth", "user:pass",
+		"--vmalert-tls-skip-verify",
+	}
+	if err := fs.Parse(args); err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	cfg, err := config.Load(fs, "")
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.Backend != "victoria" {
+		t.Errorf("Backend = %q, want %q", cfg.Backend, "victoria")
+	}
+	if cfg.VMAlert.URL != "http://vmalert.example:8880" {
+		t.Errorf("VMAlert.URL = %q, want %q", cfg.VMAlert.URL, "http://vmalert.example:8880")
+	}
+	if cfg.VMAlert.Token != "flagtok" {
+		t.Errorf("VMAlert.Token = %q, want %q", cfg.VMAlert.Token, "flagtok")
+	}
+	if cfg.VMAlert.BasicAuth != "user:pass" {
+		t.Errorf("VMAlert.BasicAuth = %q, want %q", cfg.VMAlert.BasicAuth, "user:pass")
+	}
+	if !cfg.VMAlert.TLSSkipVerify {
+		t.Errorf("VMAlert.TLSSkipVerify = false, want true")
+	}
+}
