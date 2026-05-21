@@ -76,7 +76,7 @@ environment) are explicitly ignored even when high-cardinality.`,
 				return &exitError{code: 1, err: err}
 			}
 			for _, w := range res.Warnings {
-				fmt.Fprintf(cmd.ErrOrStderr(), "! warning: %s\n", w)
+				_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "! warning: %s\n", w)
 			}
 			all := res.Findings
 

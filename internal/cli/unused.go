@@ -31,6 +31,7 @@ Subcommands:
 	return cmd
 }
 
+//nolint:gocyclo // RunE closure is straight-line config-gathering; no branching to flatten
 func newUnusedMetricsCmd() *cobra.Command {
 	var (
 		limit       int
@@ -98,7 +99,7 @@ recording rule references count toward "used".`,
 				return &exitError{code: 1, err: err}
 			}
 			for _, w := range res.Warnings {
-				fmt.Fprintf(cmd.ErrOrStderr(), "! warning: %s\n", w)
+				_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "! warning: %s\n", w)
 			}
 			all := res.Findings
 
