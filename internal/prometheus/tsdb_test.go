@@ -8,6 +8,8 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -150,5 +152,47 @@ func TestBuildInfo_UsesDetectionCache(t *testing.T) {
 	}
 	if hits != 1 {
 		t.Errorf("buildinfo HTTP hits = %d, want 1", hits)
+	}
+}
+
+func TestBuildInfo_ConcurrentFallbackIsRaceFree(t *testing.T) {
+	var hits int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&hits, 1)
+		_, _ = w.Write([]byte(`{"status":"success","data":{"version":"v1.99.0"}}`))
+	}))
+	defer srv.Close()
+	c, err := prom.New(srv.URL, prom.WithFlavorHint(prom.FlavorVictoria))
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	var wg sync.WaitGroup
+	const goroutines = 50
+	wg.Add(goroutines)
+	results := make([]*prom.BuildInfo, goroutines)
+	errs := make([]error, goroutines)
+	for i := 0; i < goroutines; i++ {
+		go func(i int) {
+			defer wg.Done()
+			results[i], errs[i] = c.BuildInfo(context.Background())
+		}(i)
+	}
+	wg.Wait()
+	for i, err := range errs {
+		if err != nil {
+			t.Errorf("goroutine %d: %v", i, err)
+		}
+	}
+	// First-writer-wins means all results should point to the same BuildInfo.
+	for i := 1; i < goroutines; i++ {
+		if results[i] != results[0] {
+			t.Errorf("goroutine %d returned different pointer than goroutine 0", i)
+			break
+		}
+	}
+	// hits may be >= 1 since the race-free design allows multiple concurrent
+	// fetches before the cache is populated. The contract is: first writer wins.
+	if hits < 1 {
+		t.Errorf("expected at least 1 HTTP hit, got %d", hits)
 	}
 }
