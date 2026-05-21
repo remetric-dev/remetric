@@ -90,7 +90,7 @@ func TestE2E_VM_CardinalitySuspicious(t *testing.T) {
 }
 
 // runCmdSplit runs the binary and returns stdout and stderr separately. The
-// standalone `unused metrics` command writes graceful-degradation warnings to
+// standalone `metrics unused` command writes graceful-degradation warnings to
 // stderr (per T12), so tests that assert on those warnings need them split out
 // from the JSON document on stdout.
 func runCmdSplit(t *testing.T, exe string, args ...string) (stdout, stderr string, err error) {
@@ -107,13 +107,13 @@ func TestE2E_VM_UnusedWithoutVMAlert(t *testing.T) {
 	skipIfVMDown(t)
 	time.Sleep(5 * time.Second)
 	stdout, stderr, err := runCmdSplit(t, binPath(t),
-		"unused", "metrics",
+		"metrics", "unused",
 		"--prometheus", vmURL,
 		"--output", "json",
 		"--min-severity", "low",
 	)
 	if err != nil {
-		t.Fatalf("unused metrics failed: %v\nstdout:\n%s\nstderr:\n%s", err, stdout, stderr)
+		t.Fatalf("metrics unused failed: %v\nstdout:\n%s\nstderr:\n%s", err, stdout, stderr)
 	}
 	// VictoriaMetrics single-node serves /api/v1/rules at HTTP 200 with empty
 	// groups (not 404) because recording rules live in vmalert. Without
@@ -151,14 +151,14 @@ func TestE2E_VM_UnusedWithVMAlert(t *testing.T) {
 	skipIfVMDown(t)
 	time.Sleep(5 * time.Second)
 	stdout, stderr, err := runCmdSplit(t, binPath(t),
-		"unused", "metrics",
+		"metrics", "unused",
 		"--prometheus", vmURL,
 		"--vmalert", vmalertURL,
 		"--output", "json",
 		"--min-severity", "low",
 	)
 	if err != nil {
-		t.Fatalf("unused metrics failed: %v\nstdout:\n%s\nstderr:\n%s", err, stdout, stderr)
+		t.Fatalf("metrics unused failed: %v\nstdout:\n%s\nstderr:\n%s", err, stdout, stderr)
 	}
 	if strings.Contains(stderr, "rules unavailable") {
 		t.Errorf("did not expect 'rules unavailable' with --vmalert set:\nstderr:\n%s", stderr)
