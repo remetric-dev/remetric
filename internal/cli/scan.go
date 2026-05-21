@@ -61,22 +61,31 @@ findings.Report shape — see the JSON schema in the spec.`,
 			if err != nil {
 				return &exitError{code: 2, err: err}
 			}
-
-			deps := analyzers.Deps{
-				Prom:   promClient,
-				Graf:   grafClient,
-				Logger: loggerFrom(ctx),
-				Limits: analyzers.DefaultLimits(),
+			vmalertClient, err := buildVMAlertClient(cfg, "remetric/scan")
+			if err != nil {
+				return &exitError{code: 2, err: err}
 			}
 
-			var all []findings.Finding
+			deps := analyzers.Deps{
+				Prom:    promClient,
+				Graf:    grafClient,
+				VMAlert: vmalertClient,
+				Logger:  loggerFrom(ctx),
+				Limits:  analyzers.DefaultLimits(),
+			}
+
+			var (
+				all      []findings.Finding
+				warnings []string
+			)
 			runners := []analyzers.Analyzer{cardinality.New(), labelpattern.New(), unusedmetrics.New()}
 			for _, a := range runners {
-				fs, err := a.Analyze(ctx, deps)
+				res, err := a.Analyze(ctx, deps)
 				if err != nil {
 					return &exitError{code: 1, err: fmt.Errorf("%s: %w", a.Name(), err)}
 				}
-				all = append(all, fs...)
+				all = append(all, res.Findings...)
+				warnings = append(warnings, res.Warnings...)
 			}
 			filtered := filterAtLeast(all, minSev)
 			sort.SliceStable(filtered, func(i, j int) bool {
@@ -87,6 +96,7 @@ findings.Report shape — see the JSON schema in the spec.`,
 			})
 
 			rep := buildReport(cmd, cfg, filtered, promClient)
+			rep.Warnings = warnings
 			rep.ScannedAt = time.Now().UTC()
 			return renderReport(cfg, cmd.OutOrStdout(), rep)
 		},

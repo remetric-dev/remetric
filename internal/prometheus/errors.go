@@ -19,6 +19,12 @@ var (
 	// ErrInvalidArgument is returned when a public method receives a
 	// missing or malformed argument (e.g. empty label name).
 	ErrInvalidArgument = errors.New("invalid argument")
+	// ErrNotSupported is returned when an endpoint is not supported on
+	// the detected backend (e.g. /api/v1/status/runtimeinfo on VictoriaMetrics).
+	ErrNotSupported = errors.New("endpoint not supported on this backend")
+	// ErrFlavorDetectFailed is returned when backend detection did not converge,
+	// usually due to auth or network errors on the buildinfo probe.
+	ErrFlavorDetectFailed = errors.New("backend flavor detection failed")
 )
 
 // Error captures the HTTP details of a failed Prometheus call.

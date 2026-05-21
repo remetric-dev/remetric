@@ -1,0 +1,22 @@
+{
+  "status": "success",
+  "isPartial": false,
+  "data": {
+    "totalSeries": 1500,
+    "totalLabelValuePairs": 4500,
+    "seriesCountByMetricName": [
+      {"name": "app_requests_total", "value": 500},
+      {"name": "node_cpu_seconds_total", "value": 200}
+    ],
+    "labelValueCountByLabelName": [
+      {"name": "user_id", "value": 500},
+      {"name": "instance", "value": 5}
+    ],
+    "seriesCountByLabelName": [
+      {"name": "user_id", "value": 500}
+    ],
+    "labelValueCountByLabelValuePair": [
+      {"name": "job=cardinality-bomb", "value": 500}
+    ]
+  }
+}

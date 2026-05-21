@@ -52,3 +52,17 @@ func TestErrInvalidArgument_IsSentinel(t *testing.T) {
 		t.Errorf("errors.Is(%v, ErrInvalidArgument) = false, want true", err)
 	}
 }
+
+func TestSentinels_Distinct(t *testing.T) {
+	all := []error{ErrAuth, ErrNotFound, ErrConflictingAuth, ErrInvalidURL, ErrInvalidArgument, ErrNotSupported, ErrFlavorDetectFailed}
+	for i, a := range all {
+		for j, b := range all {
+			if i == j {
+				continue
+			}
+			if errors.Is(a, b) {
+				t.Errorf("sentinels %d and %d should be distinct", i, j)
+			}
+		}
+	}
+}

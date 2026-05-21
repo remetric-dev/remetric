@@ -5,6 +5,7 @@ package findings
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
@@ -114,6 +115,29 @@ func TestReport_PopulatedTargetOverview(t *testing.T) {
 	}
 	if overview["total_series"] != float64(2_341_892) {
 		t.Errorf("total_series = %v, want 2341892", overview["total_series"])
+	}
+}
+
+func TestReport_WarningsRoundTrip(t *testing.T) {
+	r := NewReport("1.0", nil)
+	r.Warnings = []string{"vmalert URL not configured"}
+	b, err := json.Marshal(r)
+	if err != nil {
+		t.Fatalf("Marshal: %v", err)
+	}
+	if !strings.Contains(string(b), `"warnings":["vmalert URL not configured"]`) {
+		t.Errorf("warnings missing from JSON: %s", string(b))
+	}
+}
+
+func TestReport_OmitsEmptyWarnings(t *testing.T) {
+	r := NewReport("1.0", nil)
+	b, err := json.Marshal(r)
+	if err != nil {
+		t.Fatalf("Marshal: %v", err)
+	}
+	if strings.Contains(string(b), `"warnings"`) {
+		t.Errorf("empty warnings should be omitted: %s", string(b))
 	}
 }
 

@@ -1,5 +1,6 @@
 {
   "prometheus_url": "http://prom:9090",
+  "backend": "prometheus",
   "reachable": true,
   "version": "2.51.2",
   "version_ok": true,
@@ -8,5 +9,6 @@
   "num_series": 1234567,
   "num_metrics": 4127,
   "storage_retention": "15d",
+  "runtime_info_supported": true,
   "elapsed_ms": 27
 }

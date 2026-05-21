@@ -8,6 +8,10 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -50,7 +54,7 @@ func TestClient_RuntimeInfo_Parses(t *testing.T) {
 	srv := promtest.NewServer(t, "testdata", promtest.Routes{
 		"/api/v1/status/runtimeinfo": "runtimeinfo.json",
 	})
-	c, _ := prom.New(srv.URL)
+	c, _ := prom.New(srv.URL, prom.WithFlavorHint(prom.FlavorProm))
 	got, err := c.RuntimeInfo(context.Background())
 	if err != nil {
 		t.Fatalf("RuntimeInfo err = %v", err)
@@ -67,7 +71,7 @@ func TestClient_TSDBStats_Parses(t *testing.T) {
 	srv := promtest.NewServer(t, "testdata", promtest.Routes{
 		"/api/v1/status/tsdb": "tsdb_stats_typical.json",
 	})
-	c, _ := prom.New(srv.URL)
+	c, _ := prom.New(srv.URL, prom.WithFlavorHint(prom.FlavorProm))
 	got, err := c.TSDBStats(context.Background(), 20)
 	if err != nil {
 		t.Fatalf("TSDBStats err = %v", err)
@@ -103,5 +107,147 @@ func TestClient_BuildInfo_Auth401Wraps(t *testing.T) {
 	_, err := c.BuildInfo(context.Background())
 	if !errors.Is(err, prom.ErrAuth) {
 		t.Errorf("err = %v, want wraps ErrAuth", err)
+	}
+}
+
+func TestBuildInfo_VMSingleBinary(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v1/status/buildinfo" {
+			http.Error(w, "wrong path", 500)
+			return
+		}
+		_, _ = w.Write([]byte(`{"status":"success","data":{"version":"v1.99.0"}}`))
+	}))
+	defer srv.Close()
+	c, err := prom.New(srv.URL, prom.WithFlavorHint(prom.FlavorVictoria))
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	bi, err := c.BuildInfo(context.Background())
+	if err != nil {
+		t.Fatalf("BuildInfo: %v", err)
+	}
+	if bi.Version != "v1.99.0" {
+		t.Errorf("Version = %q, want %q", bi.Version, "v1.99.0")
+	}
+	if bi.Revision != "" || bi.GoVersion != "" {
+		t.Errorf("VM build info should leave Revision/GoVersion empty, got Revision=%q GoVersion=%q", bi.Revision, bi.GoVersion)
+	}
+}
+
+func TestBuildInfo_UsesDetectionCache(t *testing.T) {
+	var hits int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits++
+		_, _ = w.Write([]byte(`{"status":"success","data":{"version":"v1.99.0"}}`))
+	}))
+	defer srv.Close()
+	c, err := prom.New(srv.URL)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	if _, err := c.BuildInfo(context.Background()); err != nil {
+		t.Fatalf("BuildInfo: %v", err)
+	}
+	if _, err := c.BuildInfo(context.Background()); err != nil {
+		t.Fatalf("BuildInfo: %v", err)
+	}
+	if hits != 1 {
+		t.Errorf("buildinfo HTTP hits = %d, want 1", hits)
+	}
+}
+
+func TestBuildInfo_ConcurrentFallbackIsRaceFree(t *testing.T) {
+	var hits int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&hits, 1)
+		_, _ = w.Write([]byte(`{"status":"success","data":{"version":"v1.99.0"}}`))
+	}))
+	defer srv.Close()
+	c, err := prom.New(srv.URL, prom.WithFlavorHint(prom.FlavorVictoria))
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	var wg sync.WaitGroup
+	const goroutines = 50
+	wg.Add(goroutines)
+	results := make([]*prom.BuildInfo, goroutines)
+	errs := make([]error, goroutines)
+	for i := 0; i < goroutines; i++ {
+		go func(i int) {
+			defer wg.Done()
+			results[i], errs[i] = c.BuildInfo(context.Background())
+		}(i)
+	}
+	wg.Wait()
+	for i, err := range errs {
+		if err != nil {
+			t.Errorf("goroutine %d: %v", i, err)
+		}
+	}
+	// First-writer-wins means all results should point to the same BuildInfo.
+	for i := 1; i < goroutines; i++ {
+		if results[i] != results[0] {
+			t.Errorf("goroutine %d returned different pointer than goroutine 0", i)
+			break
+		}
+	}
+	// hits may be >= 1 since the race-free design allows multiple concurrent
+	// fetches before the cache is populated. The contract is: first writer wins.
+	if hits < 1 {
+		t.Errorf("expected at least 1 HTTP hit, got %d", hits)
+	}
+}
+
+func TestTSDBStats_VictoriaFormat(t *testing.T) {
+	body, err := os.ReadFile(filepath.Join("testdata", "tsdb-vm.json"))
+	if err != nil {
+		t.Fatalf("read fixture: %v", err)
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v1/status/tsdb" {
+			http.Error(w, "wrong path", 500)
+			return
+		}
+		_, _ = w.Write(body)
+	}))
+	defer srv.Close()
+	c, err := prom.New(srv.URL, prom.WithFlavorHint(prom.FlavorVictoria))
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	stats, err := c.TSDBStats(context.Background(), 0)
+	if err != nil {
+		t.Fatalf("TSDBStats: %v", err)
+	}
+	wantHeadSeries := int64(700) // 500 + 200
+	if stats.HeadStats.NumSeries != wantHeadSeries {
+		t.Errorf("HeadStats.NumSeries = %d, want %d", stats.HeadStats.NumSeries, wantHeadSeries)
+	}
+	if len(stats.SeriesCountByMetricName) != 2 {
+		t.Errorf("SeriesCountByMetricName len = %d, want 2", len(stats.SeriesCountByMetricName))
+	}
+	if stats.SeriesCountByMetricName[0].Name != "app_requests_total" {
+		t.Errorf("top metric = %q, want %q", stats.SeriesCountByMetricName[0].Name, "app_requests_total")
+	}
+}
+
+func TestRuntimeInfo_VMReturnsErrNotSupported(t *testing.T) {
+	var hits int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits++
+		w.WriteHeader(404)
+	}))
+	defer srv.Close()
+	c, err := prom.New(srv.URL, prom.WithFlavorHint(prom.FlavorVictoria))
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	_, err = c.RuntimeInfo(context.Background())
+	if !errors.Is(err, prom.ErrNotSupported) {
+		t.Errorf("err = %v, want ErrNotSupported", err)
+	}
+	if hits != 0 {
+		t.Errorf("RuntimeInfo should not hit the server on VM flavor; hits=%d", hits)
 	}
 }

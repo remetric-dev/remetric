@@ -84,10 +84,10 @@ func TestAnalyzer_DiffsCorrectly(t *testing.T) {
 	}))
 	defer graf.Close()
 
-	pc, _ := prometheus.New(prom.URL)
+	pc, _ := prometheus.New(prom.URL, prometheus.WithFlavorHint(prometheus.FlavorProm))
 	gc, _ := grafana.New(graf.URL)
 
-	out, err := New().Analyze(context.Background(), analyzers.Deps{
+	res, err := New().Analyze(context.Background(), analyzers.Deps{
 		Prom:   pc,
 		Graf:   gc,
 		Logger: slog.Default(),
@@ -96,6 +96,7 @@ func TestAnalyzer_DiffsCorrectly(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Analyze: %v", err)
 	}
+	out := res.Findings
 	gotNames := make([]string, 0, len(out))
 	for _, f := range out {
 		gotNames = append(gotNames, f.Metric)
@@ -143,8 +144,8 @@ func TestAnalyzer_GrafanaNilSkipsDashboards(t *testing.T) {
 	}))
 	defer prom.Close()
 
-	pc, _ := prometheus.New(prom.URL)
-	out, err := New().Analyze(context.Background(), analyzers.Deps{
+	pc, _ := prometheus.New(prom.URL, prometheus.WithFlavorHint(prometheus.FlavorProm))
+	res, err := New().Analyze(context.Background(), analyzers.Deps{
 		Prom:   pc,
 		Graf:   nil, // explicit
 		Logger: slog.Default(),
@@ -153,6 +154,7 @@ func TestAnalyzer_GrafanaNilSkipsDashboards(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Analyze: %v", err)
 	}
+	out := res.Findings
 	if len(out) != 1 || out[0].Metric != "a" {
 		t.Errorf("expected 1 finding for `a`, got %+v", out)
 	}
@@ -195,13 +197,14 @@ func TestAnalyzer_RecordingRuleOutputUsed(t *testing.T) {
 	}))
 	defer prom.Close()
 
-	pc, _ := prometheus.New(prom.URL)
-	out, err := New().Analyze(context.Background(), analyzers.Deps{
+	pc, _ := prometheus.New(prom.URL, prometheus.WithFlavorHint(prometheus.FlavorProm))
+	res, err := New().Analyze(context.Background(), analyzers.Deps{
 		Prom: pc, Graf: nil, Logger: slog.Default(), Limits: analyzers.DefaultLimits(),
 	})
 	if err != nil {
 		t.Fatalf("Analyze: %v", err)
 	}
+	out := res.Findings
 	if len(out) != 0 {
 		gotNames := make([]string, 0, len(out))
 		for _, f := range out {
@@ -247,5 +250,89 @@ func TestAnalyzer_GrafanaError(t *testing.T) {
 	})
 	if err == nil {
 		t.Error("expected error from grafana 500, got nil")
+	}
+}
+
+func TestAnalyzer_VictoriaWithoutVMAlert_WarnsAndContinues(t *testing.T) {
+	// Prom-side serves labels + tsdb + an HTTP 200 empty-groups rules
+	// payload (the actual VictoriaMetrics single-node behavior). Flavor
+	// is forced Victoria. The analyzer must still surface the
+	// "rules unavailable" warning because without --vmalert we can't
+	// distinguish "no rules" from "rules live in vmalert".
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/v1/label/__name__/values":
+			_, _ = w.Write([]byte(`{"status":"success","data":["only_metric"]}`))
+		case "/api/v1/status/tsdb":
+			_, _ = w.Write([]byte(`{"status":"success","data":{"seriesCountByMetricName":[{"name":"only_metric","value":100}]}}`))
+		case "/api/v1/rules":
+			_, _ = w.Write([]byte(`{"status":"success","data":{"groups":[]}}`))
+		default:
+			http.Error(w, "unexpected: "+r.URL.Path, 500)
+		}
+	}))
+	defer srv.Close()
+	prom, err := prometheus.New(srv.URL, prometheus.WithFlavorHint(prometheus.FlavorVictoria))
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	a := New()
+	res, err := a.Analyze(context.Background(), analyzers.Deps{Prom: prom})
+	if err != nil {
+		t.Fatalf("Analyze: %v", err)
+	}
+	if len(res.Warnings) == 0 {
+		t.Fatalf("expected at least one warning, got none")
+	}
+	wantSub := "rules unavailable"
+	if !strings.Contains(res.Warnings[0], wantSub) {
+		t.Errorf("warning %q does not contain %q", res.Warnings[0], wantSub)
+	}
+	if len(res.Findings) != 1 {
+		t.Errorf("Findings len = %d, want 1 (analyzer should continue with empty rules)", len(res.Findings))
+	}
+}
+
+func TestAnalyzer_VictoriaWithVMAlert_UsesVMAlertForRules(t *testing.T) {
+	promHits := map[string]int{}
+	prom := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		promHits[r.URL.Path]++
+		switch r.URL.Path {
+		case "/api/v1/label/__name__/values":
+			_, _ = w.Write([]byte(`{"status":"success","data":["only_metric","record_metric"]}`))
+		case "/api/v1/status/tsdb":
+			_, _ = w.Write([]byte(`{"status":"success","data":{"seriesCountByMetricName":[{"name":"only_metric","value":100}]}}`))
+		case "/api/v1/rules":
+			w.WriteHeader(404) // VM never serves rules itself
+		default:
+			http.Error(w, "unexpected: "+r.URL.Path, 500)
+		}
+	}))
+	defer prom.Close()
+	vmalert := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/v1/rules" {
+			_, _ = w.Write([]byte(`{"status":"success","data":{"groups":[{"name":"g","rules":[{"name":"record_metric","query":"sum(only_metric)","type":"recording"}]}]}}`))
+			return
+		}
+		http.Error(w, "wrong path", 500)
+	}))
+	defer vmalert.Close()
+	pClient, _ := prometheus.New(prom.URL, prometheus.WithFlavorHint(prometheus.FlavorVictoria))
+	vClient, _ := prometheus.New(vmalert.URL, prometheus.WithFlavorHint(prometheus.FlavorProm))
+	a := New()
+	res, err := a.Analyze(context.Background(), analyzers.Deps{Prom: pClient, VMAlert: vClient})
+	if err != nil {
+		t.Fatalf("Analyze: %v", err)
+	}
+	if len(res.Warnings) != 0 {
+		t.Errorf("expected no warnings, got %v", res.Warnings)
+	}
+	// only_metric is referenced by the recording rule's query, record_metric is the output.
+	// Both should be "used" → zero findings.
+	if len(res.Findings) != 0 {
+		t.Errorf("Findings = %+v, want empty", res.Findings)
+	}
+	if promHits["/api/v1/rules"] != 0 {
+		t.Errorf("prom rules endpoint should not be hit when VMAlert is set; hits=%d", promHits["/api/v1/rules"])
 	}
 }
