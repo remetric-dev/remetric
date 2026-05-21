@@ -1,0 +1,16 @@
+groups:
+  - name: cardinality-bomb-recording
+    interval: 30s
+    rules:
+      - record: app_requests_total_5m_rate
+        expr: rate(app_requests_total[5m])
+  - name: cardinality-bomb-alerting
+    interval: 30s
+    rules:
+      - alert: HighAppRequests
+        expr: sum(rate(app_requests_total[5m])) > 100
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: app_requests_total rate is high
