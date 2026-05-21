@@ -5,6 +5,7 @@ package unusedmetrics
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 
@@ -15,6 +16,12 @@ import (
 	"github.com/remetric-dev/remetric/internal/promqlx"
 	"github.com/remetric-dev/remetric/internal/scoring"
 )
+
+// errRulesUnavailable signals that the rules endpoint is unreachable on the
+// detected flavor (e.g., VictoriaMetrics without a vmalert client). It is a
+// graceful-degradation sentinel: callers convert it to a Result warning
+// rather than failing the analyzer.
+var errRulesUnavailable = errors.New("rules unavailable")
 
 // Analyzer flags ingested metrics that no Grafana dashboard, alert
 // rule, or recording rule references.
@@ -30,29 +37,37 @@ func (a *Analyzer) Name() string { return "unusedmetrics" }
 //
 // When Deps.Graf is nil, dashboard-based usage signal is skipped;
 // only rules + recording-output names are considered "used".
-func (a *Analyzer) Analyze(ctx context.Context, d analyzers.Deps) ([]findings.Finding, error) {
+func (a *Analyzer) Analyze(ctx context.Context, d analyzers.Deps) (analyzers.Result, error) {
 	ingested, err := d.Prom.LabelValues(ctx, "__name__")
 	if err != nil {
-		return nil, fmt.Errorf("unusedmetrics: ingested names: %w", err)
+		return analyzers.Result{}, fmt.Errorf("unusedmetrics: ingested names: %w", err)
 	}
 
-	// Used set: dashboard queries + alert exprs + recording-rule exprs + recording output names.
-	used := map[string]struct{}{}
-	if err := collectDashboardUsage(ctx, d.Graf, used); err != nil {
-		return nil, err
-	}
-	if err := collectRuleUsage(ctx, d.Prom, used); err != nil {
-		return nil, err
-	}
-
-	// Map metric name → head series count via TSDB stats.
+	// Resolve TSDB stats first: TSDBStats triggers flavor detection on the
+	// Prom client, which collectRuleUsage relies on to decide whether a
+	// /api/v1/rules 404 is graceful degradation (Victoria) or a hard error.
 	stats, err := d.Prom.TSDBStats(ctx, len(ingested))
 	if err != nil {
-		return nil, fmt.Errorf("unusedmetrics: tsdb stats: %w", err)
+		return analyzers.Result{}, fmt.Errorf("unusedmetrics: tsdb stats: %w", err)
 	}
 	seriesByMetric := make(map[string]int64, len(stats.SeriesCountByMetricName))
 	for _, m := range stats.SeriesCountByMetricName {
 		seriesByMetric[m.Name] = m.Value
+	}
+
+	// Used set: dashboard queries + alert exprs + recording-rule exprs + recording output names.
+	used := map[string]struct{}{}
+	var warnings []string
+
+	if err := collectDashboardUsage(ctx, d.Graf, used); err != nil {
+		return analyzers.Result{}, err
+	}
+	if err := collectRuleUsage(ctx, d, used); err != nil {
+		if errors.Is(err, errRulesUnavailable) {
+			warnings = append(warnings, "rules unavailable: VictoriaMetrics detected without --vmalert URL — recording rules ignored")
+		} else {
+			return analyzers.Result{}, err
+		}
 	}
 
 	out := make([]findings.Finding, 0, len(ingested))
@@ -62,7 +77,7 @@ func (a *Analyzer) Analyze(ctx context.Context, d analyzers.Deps) ([]findings.Fi
 		}
 		f, err := buildFinding(name, seriesByMetric[name])
 		if err != nil {
-			return nil, err
+			return analyzers.Result{}, err
 		}
 		out = append(out, f)
 	}
@@ -72,7 +87,7 @@ func (a *Analyzer) Analyze(ctx context.Context, d analyzers.Deps) ([]findings.Fi
 		}
 		return out[i].Evidence.SeriesCount > out[j].Evidence.SeriesCount
 	})
-	return out, nil
+	return analyzers.Result{Findings: out, Warnings: warnings}, nil
 }
 
 // collectDashboardUsage walks every Grafana dashboard and records the
@@ -108,9 +123,22 @@ func collectDashboardUsage(ctx context.Context, graf *grafana.Client, used map[s
 // collectRuleUsage records every metric referenced by an alerting or
 // recording rule expression, plus the output name of each recording
 // rule.
-func collectRuleUsage(ctx context.Context, prom *prometheus.Client, used map[string]struct{}) error {
-	rules, err := prom.Rules(ctx)
+//
+// When Deps.VMAlert is non-nil it is used for the /api/v1/rules query —
+// VictoriaMetrics's vmselect does not serve rules, so callers must point
+// us at vmalert. When VMAlert is nil and the Prom flavor is Victoria, a
+// 404 from rules is converted into errRulesUnavailable so Analyze can
+// surface a warning rather than failing.
+func collectRuleUsage(ctx context.Context, d analyzers.Deps, used map[string]struct{}) error {
+	client := d.Prom
+	if d.VMAlert != nil {
+		client = d.VMAlert
+	}
+	rules, err := client.Rules(ctx)
 	if err != nil {
+		if errors.Is(err, prometheus.ErrNotFound) && d.Prom.Flavor() == prometheus.FlavorVictoria {
+			return errRulesUnavailable
+		}
 		return fmt.Errorf("unusedmetrics: rules: %w", err)
 	}
 	for _, g := range rules.Groups {
