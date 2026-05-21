@@ -99,7 +99,7 @@ Severity thresholds (configurable via Phase 3):
 				return &exitError{code: 1, err: err}
 			}
 			for _, w := range res.Warnings {
-				fmt.Fprintf(cmd.ErrOrStderr(), "! warning: %s\n", w)
+				_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "! warning: %s\n", w)
 			}
 			all := res.Findings
 

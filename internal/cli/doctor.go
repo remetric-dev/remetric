@@ -50,6 +50,7 @@ Use --output json to emit machine-readable output (e.g. for CI).`,
 	}
 }
 
+//nolint:gocyclo // straight-line config-gathering and best-effort enrichments; no branching to flatten
 func runDoctor(cmd *cobra.Command, _ []string) error {
 	ctx := cmd.Context()
 	cfg := configFrom(ctx)
@@ -118,6 +119,7 @@ func runDoctor(cmd *cobra.Command, _ []string) error {
 	} else if errors.Is(err, prom.ErrNotSupported) {
 		// Backend (e.g., VictoriaMetrics) doesn't expose runtimeinfo.
 		// Leave RuntimeInfoSupported = false; renderer prints n/a.
+		_ = err
 	}
 	if names, err := client.LabelValues(ctx, "__name__"); err == nil {
 		rep.NumMetrics = int64(len(names))
