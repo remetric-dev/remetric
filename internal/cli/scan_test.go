@@ -96,6 +96,54 @@ func TestScan_JSONReport(t *testing.T) {
 	}
 }
 
+func TestScan_IncludesAlertHygieneRunner(t *testing.T) {
+	// Stub returns one alerting rule. Only the alerthygiene analyzer issues
+	// ALERTS{alertname=...} via query_range, so queryRangeHit is the
+	// load-bearing signal that the analyzer was registered into scan's
+	// runner list. (Note: unusedmetrics also calls /api/v1/rules for its
+	// rules-only fallback, so rulesHit alone wouldn't discriminate.)
+	var rulesHit, queryRangeHit bool
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/v1/rules":
+			rulesHit = true
+			_, _ = w.Write([]byte(`{"status":"success","data":{"groups":[{"name":"g","file":"f.yml","rules":[{"name":"NeverFires","type":"alerting","query":"vector(1)"}]}]}}`))
+		case "/api/v1/query_range":
+			queryRangeHit = true
+			_, _ = w.Write([]byte(`{"status":"success","data":{"resultType":"matrix","result":[]}}`))
+		case "/api/v1/label/__name__/values":
+			_, _ = w.Write([]byte(`{"status":"success","data":[]}`))
+		case "/api/v1/status/tsdb":
+			_, _ = w.Write([]byte(`{"status":"success","data":{"headStats":{"numSeries":0},"seriesCountByMetricName":[]}}`))
+		case "/api/v1/status/buildinfo":
+			_, _ = w.Write([]byte(`{"status":"success","data":{"version":"2.51.2","revision":"abc","goVersion":"go1.22"}}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(srv.Close)
+
+	var stdout, stderr bytes.Buffer
+	code := cli.ExecuteWith(cli.Args{
+		Version: "test",
+		Args:    []string{"scan", "--prometheus", srv.URL, "--output", "json", "--min-severity", "low"},
+		Stdout:  &stdout,
+		Stderr:  &stderr,
+	})
+	if code != 0 {
+		t.Fatalf("exit code = %d, stderr=%s", code, stderr.String())
+	}
+	if !rulesHit {
+		t.Errorf("scan did not call /api/v1/rules")
+	}
+	if !queryRangeHit {
+		t.Errorf("scan did not call /api/v1/query_range — alerthygiene analyzer not wired into scan runners")
+	}
+	if !strings.Contains(stdout.String(), "NeverFires") {
+		t.Errorf("scan output missing NeverFires finding:\n%s", stdout.String())
+	}
+}
+
 func TestScan_SkipsUnusedWhenNoGrafana(t *testing.T) {
 	ts := newPromScanStub(t)
 	defer ts.Close()
