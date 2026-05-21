@@ -61,12 +61,17 @@ findings.Report shape — see the JSON schema in the spec.`,
 			if err != nil {
 				return &exitError{code: 2, err: err}
 			}
+			vmalertClient, err := buildVMAlertClient(cfg, "remetric/scan")
+			if err != nil {
+				return &exitError{code: 2, err: err}
+			}
 
 			deps := analyzers.Deps{
-				Prom:   promClient,
-				Graf:   grafClient,
-				Logger: loggerFrom(ctx),
-				Limits: analyzers.DefaultLimits(),
+				Prom:    promClient,
+				Graf:    grafClient,
+				VMAlert: vmalertClient,
+				Logger:  loggerFrom(ctx),
+				Limits:  analyzers.DefaultLimits(),
 			}
 
 			var (
