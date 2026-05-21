@@ -120,6 +120,46 @@ remetric scan \
 `scan` emits a `findings.Report` (see spec §5.5) — combine with `--output json`
 for CI.
 
+## VictoriaMetrics support
+
+`remetric` works against VictoriaMetrics out of the box. The Prometheus
+HTTP API surface VM exposes is auto-detected on first call. Backend
+detection is logged once; override via `--backend=victoria` (or
+`prometheus`, `auto`) if needed.
+
+````bash
+# Single-binary VM (default port 8428)
+remetric scan --prometheus http://vm:8428
+
+# VM cluster fronted by vmauth, vmalert separate
+remetric scan \
+  --prometheus https://vmauth.example.com:8427 \
+  --prom-token "$VMAUTH_TOKEN" \
+  --vmalert http://vmalert:8880
+
+# Force VM mode (skip auto-detection)
+remetric scan --prometheus http://vm:8428 --backend victoria
+````
+
+### vmalert
+
+`/api/v1/rules` is served by `vmalert`, not `vmselect`. Without
+`--vmalert`, `unused metrics` and `scan` warn with `rules unavailable`
+and may report false-positives for metrics referenced only by recording
+rules. Point `--vmalert` at the vmalert HTTP listener (default `:8880`)
+to get full coverage. Auth flags `--vmalert-token` / `--vmalert-basic-auth`
+exist for split-credential setups; if omitted, vmalert inherits auth from
+`--prom-token` / `--prom-basic-auth`.
+
+### Known limitations
+
+- `doctor` shows `retention: n/a` — VM does not expose
+  `/api/v1/status/runtimeinfo`.
+- `cardinality top` derives `numSeries` by summing
+  `seriesCountByMetricName` (VM does not return `headStats`).
+- Cortex/Mimir-style multi-tenancy headers (`X-Scope-OrgID`) are not
+  supported; URL-prefix-based tenant routing through `vmauth` works.
+
 ## Commands
 
 | Command                            | What it does                                                |
@@ -139,6 +179,11 @@ Global flags (subset; see `--help` for the full list):
 - `--grafana-token TOK` — Grafana service-account API key. Env: `REMETRIC_GRAFANA_TOKEN`.
 - `--grafana-basic-auth USER:PASS` — Basic auth for Grafana.
 - `--grafana-tls-skip-verify` — Skip TLS verification for Grafana.
+- `--backend {auto|prometheus|victoria}` — backend dialect. Env: `REMETRIC_BACKEND`.
+- `--vmalert URL` — vmalert base URL for /api/v1/rules. Env: `REMETRIC_VMALERT_URL`.
+- `--vmalert-token TOK` — Bearer for vmalert (inherits from --prom-token if unset). Env: `REMETRIC_VMALERT_TOKEN`.
+- `--vmalert-basic-auth USER:PASS` — Basic auth for vmalert (inherits from --prom-basic-auth if unset).
+- `--vmalert-tls-skip-verify` — Skip TLS verify for vmalert.
 - `--prom-basic-auth USER:PASS` — Basic auth.
 - `--prom-max-in-flight N` — Concurrency cap (default 5).
 - `--output FORMAT` — `terminal` (default) or `json`.
