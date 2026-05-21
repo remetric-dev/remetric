@@ -50,6 +50,7 @@ func (a *Analyzer) Analyze(ctx context.Context, d analyzers.Deps) (analyzers.Res
 		seriesByMetric[m.Name] = m.Value
 	}
 
+	var warnings []string
 	var out []findings.Finding
 	for _, lbl := range stats.LabelValueCountByLabelName {
 		if IsBounded(lbl.Name) {
@@ -61,13 +62,14 @@ func (a *Analyzer) Analyze(ctx context.Context, d analyzers.Deps) (analyzers.Res
 
 		samples, err := d.Prom.LabelValues(ctx, lbl.Name)
 		if err != nil {
-			return analyzers.Result{}, fmt.Errorf("labelpattern: sample %q: %w", lbl.Name, err)
+			warnings = append(warnings, fmt.Sprintf("labelpattern: sample %q: %v", lbl.Name, err))
+			continue
 		}
 
-		// TODO(phase3): aggregate per-label errors instead of fail-fast.
 		metrics, err := d.Prom.MetricNamesWithLabel(ctx, lbl.Name)
 		if err != nil {
-			return analyzers.Result{}, fmt.Errorf("labelpattern: metrics for %q: %w", lbl.Name, err)
+			warnings = append(warnings, fmt.Sprintf("labelpattern: metrics for %q: %v", lbl.Name, err))
+			continue
 		}
 
 		var seriesAffected int64
@@ -116,7 +118,7 @@ func (a *Analyzer) Analyze(ctx context.Context, d analyzers.Deps) (analyzers.Res
 		return out[i].Evidence.UniqueValues > out[j].Evidence.UniqueValues
 	})
 
-	return analyzers.Result{Findings: out}, nil
+	return analyzers.Result{Findings: out, Warnings: warnings}, nil
 }
 
 func sampleValues(values []string, n int) []string {
