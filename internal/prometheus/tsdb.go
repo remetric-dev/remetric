@@ -117,7 +117,12 @@ func (c *Client) RuntimeInfo(ctx context.Context) (*RuntimeInfo, error) {
 
 // TSDBStats fetches and parses /api/v1/status/tsdb.
 // limit caps the top-N lists; pass 0 for server default.
+// On VictoriaMetrics, the response omits the headStats block;
+// NumSeries is reconstructed by summing seriesCountByMetricName.
 func (c *Client) TSDBStats(ctx context.Context, limit int) (*TSDBStats, error) {
+	if err := c.ensureFlavor(ctx); err != nil {
+		return nil, err
+	}
 	path := "/api/v1/status/tsdb"
 	if limit > 0 {
 		path += fmt.Sprintf("?limit=%d", limit)
@@ -129,6 +134,13 @@ func (c *Client) TSDBStats(ctx context.Context, limit int) (*TSDBStats, error) {
 	var env envelope[TSDBStats]
 	if err := json.Unmarshal(body, &env); err != nil {
 		return nil, fmt.Errorf("remetric: parse tsdb stats: %w", err)
+	}
+	if c.Flavor() == FlavorVictoria && env.Data.HeadStats.NumSeries == 0 {
+		var sum int64
+		for _, m := range env.Data.SeriesCountByMetricName {
+			sum += m.Value
+		}
+		env.Data.HeadStats.NumSeries = sum
 	}
 	return &env.Data, nil
 }
