@@ -13,16 +13,18 @@ import (
 
 func TestRenderDoctor_Golden(t *testing.T) {
 	rep := findings.DoctorReport{
-		PrometheusURL:    "http://prom:9090",
-		Reachable:        true,
-		Version:          "2.51.2",
-		VersionOK:        true,
-		AuthMethod:       "none",
-		TSDBStatsOK:      true,
-		NumSeries:        1_234_567,
-		NumMetrics:       4_127,
-		StorageRetention: "15d",
-		ElapsedMs:        27,
+		PrometheusURL:        "http://prom:9090",
+		Backend:              "prometheus",
+		Reachable:            true,
+		Version:              "2.51.2",
+		VersionOK:            true,
+		AuthMethod:           "none",
+		TSDBStatsOK:          true,
+		NumSeries:            1_234_567,
+		NumMetrics:           4_127,
+		StorageRetention:     "15d",
+		RuntimeInfoSupported: true,
+		ElapsedMs:            27,
 	}
 	var buf bytes.Buffer
 	if err := New(&buf).RenderDoctor(rep); err != nil {

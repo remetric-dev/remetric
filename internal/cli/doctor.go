@@ -87,6 +87,7 @@ func runDoctor(cmd *cobra.Command, _ []string) error {
 		rep.Errors = append(rep.Errors, findings.DoctorError{Check: "buildinfo", Error: err.Error()})
 	} else {
 		rep.Version = bi.Version
+		rep.Backend = client.Flavor().String()
 		rep.VersionOK = compareVersions(bi.Version, minPrometheusVersion) >= 0
 		if !rep.VersionOK {
 			rep.Errors = append(rep.Errors, findings.DoctorError{
@@ -106,7 +107,11 @@ func runDoctor(cmd *cobra.Command, _ []string) error {
 	// Best-effort enrichments: failures are silently ignored so the report
 	// simply omits these fields. The [OK] markers above remain authoritative.
 	if rt, err := client.RuntimeInfo(ctx); err == nil {
+		rep.RuntimeInfoSupported = true
 		rep.StorageRetention = rt.StorageRetention
+	} else if errors.Is(err, prom.ErrNotSupported) {
+		// Backend (e.g., VictoriaMetrics) doesn't expose runtimeinfo.
+		// Leave RuntimeInfoSupported = false; renderer prints n/a.
 	}
 	if names, err := client.LabelValues(ctx, "__name__"); err == nil {
 		rep.NumMetrics = int64(len(names))

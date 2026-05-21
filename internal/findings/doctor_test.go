@@ -13,16 +13,18 @@ import (
 
 func TestDoctorReport_JSONShape(t *testing.T) {
 	rep := DoctorReport{
-		PrometheusURL:    "http://prom:9090",
-		Reachable:        true,
-		Version:          "2.51.2",
-		VersionOK:        true,
-		AuthMethod:       "none",
-		TSDBStatsOK:      true,
-		NumSeries:        1_234_567,
-		NumMetrics:       4_127,
-		StorageRetention: "15d",
-		ElapsedMs:        27,
+		PrometheusURL:        "http://prom:9090",
+		Backend:              "prometheus",
+		Reachable:            true,
+		Version:              "2.51.2",
+		VersionOK:            true,
+		AuthMethod:           "none",
+		TSDBStatsOK:          true,
+		NumSeries:            1_234_567,
+		NumMetrics:           4_127,
+		StorageRetention:     "15d",
+		RuntimeInfoSupported: true,
+		ElapsedMs:            27,
 	}
 	b, err := json.Marshal(rep)
 	if err != nil {
@@ -33,16 +35,18 @@ func TestDoctorReport_JSONShape(t *testing.T) {
 		t.Fatalf("Unmarshal: %v", err)
 	}
 	want := map[string]any{
-		"prometheus_url":        "http://prom:9090",
-		"reachable":             true,
-		"version":               "2.51.2",
-		"version_ok":            true,
-		"auth_method":           "none",
-		"tsdb_stats_accessible": true,
-		"num_series":            float64(1_234_567),
-		"num_metrics":           float64(4_127),
-		"storage_retention":     "15d",
-		"elapsed_ms":            float64(27),
+		"prometheus_url":         "http://prom:9090",
+		"backend":                "prometheus",
+		"reachable":              true,
+		"version":                "2.51.2",
+		"version_ok":             true,
+		"auth_method":            "none",
+		"tsdb_stats_accessible":  true,
+		"num_series":             float64(1_234_567),
+		"num_metrics":            float64(4_127),
+		"storage_retention":      "15d",
+		"runtime_info_supported": true,
+		"elapsed_ms":             float64(27),
 	}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("DoctorReport JSON mismatch (-want +got):\n%s", diff)

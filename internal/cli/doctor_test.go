@@ -132,6 +132,48 @@ func TestDoctor_PopulatesMetricsAndRetention(t *testing.T) {
 	}
 }
 
+func TestDoctor_VictoriaBackend_PrintsLabelAndRuntimeNA(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/-/healthy":
+			w.WriteHeader(http.StatusOK)
+		case "/api/v1/status/buildinfo":
+			// Empty data is a VictoriaMetrics tell, but we also pass
+			// --backend=victoria so detection is skipped via the hint.
+			_, _ = w.Write([]byte(`{"status":"success","data":{"version":"v1.99.0"}}`))
+		case "/api/v1/status/tsdb":
+			_, _ = w.Write([]byte(`{"status":"success","data":{"seriesCountByMetricName":[]}}`))
+		case "/api/v1/label/__name__/values":
+			_, _ = w.Write([]byte(`{"status":"success","data":[]}`))
+		case "/api/v1/status/runtimeinfo":
+			http.Error(w, "not found", http.StatusNotFound)
+		default:
+			http.Error(w, "unexpected: "+r.URL.Path, http.StatusInternalServerError)
+		}
+	}))
+	defer srv.Close()
+
+	var out bytes.Buffer
+	// Exit code is not asserted: the VM build version string ("v1.99.0")
+	// does not match Prometheus's minimum-version heuristic and triggers
+	// a version FAIL. T19 is about the backend label and runtime-info
+	// rendering, not the version gate, which is tracked separately.
+	_ = cli.ExecuteWith(cli.Args{
+		Version: "test",
+		Args:    []string{"doctor", "--prometheus", srv.URL, "--backend", "victoria", "--no-color"},
+		Stdout:  &out,
+		Stderr:  &out,
+	})
+	body := out.String()
+	if !strings.Contains(body, "backend:      victoria") {
+		t.Errorf("doctor output missing 'backend: victoria' line:\n%s", body)
+	}
+	if !strings.Contains(body, "retention:    n/a") {
+		t.Errorf("doctor output missing 'retention: n/a' line for VM:\n%s", body)
+	}
+}
+
 func TestDoctor_JSONOutput(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

@@ -2,5 +2,6 @@ remetric doctor — http://localhost:9090 (in 412ms)
 
 [OK] reachable
 [OK] version 2.51.2
+     backend:      prometheus
 [OK] tsdb stats accessible (auth: none)
      active series: 2,341,892
