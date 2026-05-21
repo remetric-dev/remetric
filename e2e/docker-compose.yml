@@ -9,6 +9,7 @@ services:
       - --web.listen-address=:9090
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./alerting_rules.yml:/etc/prometheus/alerting_rules.yml:ro
     ports:
       - "9090:9090"
   node-exporter:
