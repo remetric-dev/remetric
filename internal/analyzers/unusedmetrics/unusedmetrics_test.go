@@ -336,3 +336,67 @@ func TestAnalyzer_VictoriaWithVMAlert_UsesVMAlertForRules(t *testing.T) {
 		t.Errorf("prom rules endpoint should not be hit when VMAlert is set; hits=%d", promHits["/api/v1/rules"])
 	}
 }
+
+func TestAnalyzer_PerDashboardErrorAggregation(t *testing.T) {
+	prom := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.URL.Path == "/api/v1/label/__name__/values":
+			_ = json.NewEncoder(w).Encode(map[string]any{"status": "success", "data": []string{"a", "b"}})
+		case strings.HasPrefix(r.URL.Path, "/api/v1/status/tsdb"):
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"status": "success",
+				"data": map[string]any{
+					"headStats":               map[string]any{"numSeries": 10},
+					"seriesCountByMetricName": []map[string]any{{"name": "a", "value": 5}, {"name": "b", "value": 5}},
+				},
+			})
+		case r.URL.Path == "/api/v1/rules":
+			_ = json.NewEncoder(w).Encode(map[string]any{"status": "success", "data": map[string]any{"groups": []map[string]any{}}})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer prom.Close()
+
+	graf := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api/search":
+			_ = json.NewEncoder(w).Encode([]map[string]any{
+				{"uid": "good", "title": "Good"},
+				{"uid": "bad", "title": "Bad"},
+			})
+		case "/api/dashboards/uid/good":
+			_, _ = w.Write([]byte(`{"dashboard":{"uid":"good","panels":[{"type":"graph","targets":[{"expr":"a","datasource":{"type":"prometheus"}}]}]}}`))
+		case "/api/dashboards/uid/bad":
+			w.WriteHeader(http.StatusInternalServerError)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer graf.Close()
+
+	pc, _ := prometheus.New(prom.URL, prometheus.WithFlavorHint(prometheus.FlavorProm))
+	gc, _ := grafana.New(graf.URL)
+	res, err := New().Analyze(context.Background(), analyzers.Deps{
+		Prom: pc, Graf: gc, Logger: slog.Default(), Limits: analyzers.DefaultLimits(),
+	})
+	if err != nil {
+		t.Fatalf("Analyze returned error, want graceful degradation: %v", err)
+	}
+	// 'a' was referenced by the good dashboard → not unused.
+	// 'b' was never referenced → unused (1 finding).
+	if len(res.Findings) != 1 || res.Findings[0].Metric != "b" {
+		t.Errorf("Findings = %+v, want exactly [b]", res.Findings)
+	}
+	if len(res.Warnings) != 1 {
+		t.Fatalf("Warnings = %v, want exactly 1", res.Warnings)
+	}
+	if !strings.Contains(res.Warnings[0], `dashboard "bad"`) {
+		t.Errorf("Warnings[0] = %q, want it to mention dashboard %q", res.Warnings[0], "bad")
+	}
+	if !strings.Contains(res.Warnings[0], "unusedmetrics:") {
+		t.Errorf("Warnings[0] = %q, want unusedmetrics: prefix", res.Warnings[0])
+	}
+}

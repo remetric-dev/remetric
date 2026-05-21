@@ -46,9 +46,11 @@ func (a *Analyzer) Analyze(ctx context.Context, d analyzers.Deps) (analyzers.Res
 	used := map[string]struct{}{}
 	var warnings []string
 
-	if err := collectDashboardUsage(ctx, d.Graf, used); err != nil {
+	dashWarnings, err := collectDashboardUsage(ctx, d.Graf, used)
+	if err != nil {
 		return analyzers.Result{}, err
 	}
+	warnings = append(warnings, dashWarnings...)
 	if err := collectRuleUsage(ctx, d, used); err != nil {
 		if errors.Is(err, errRulesUnavailable) {
 			warnings = append(warnings, "rules unavailable: VictoriaMetrics detected without --vmalert URL — recording rules ignored")
@@ -88,20 +90,22 @@ func (a *Analyzer) Analyze(ctx context.Context, d analyzers.Deps) (analyzers.Res
 
 // collectDashboardUsage walks every Grafana dashboard and records the
 // metric names referenced by Prometheus targets. It is a no-op when
-// graf is nil.
-func collectDashboardUsage(ctx context.Context, graf *grafana.Client, used map[string]struct{}) error {
+// graf is nil. Per-dashboard fetch errors are collected and returned
+// as warnings so a single broken dashboard does not abort the scan.
+func collectDashboardUsage(ctx context.Context, graf *grafana.Client, used map[string]struct{}) ([]string, error) {
 	if graf == nil {
-		return nil
+		return nil, nil
 	}
 	refs, err := graf.Search(ctx)
 	if err != nil {
-		return fmt.Errorf("unusedmetrics: grafana search: %w", err)
+		return nil, fmt.Errorf("unusedmetrics: grafana search: %w", err)
 	}
+	var warnings []string
 	for _, ref := range refs {
 		dash, err := graf.Dashboard(ctx, ref.UID)
 		if err != nil {
-			// TODO(phase4): aggregate per-dashboard errors instead of fail-fast.
-			return fmt.Errorf("unusedmetrics: dashboard %q: %w", ref.UID, err)
+			warnings = append(warnings, fmt.Sprintf("unusedmetrics: dashboard %q: %v", ref.UID, err))
+			continue
 		}
 		for _, q := range dash.Queries() {
 			m, err := promqlx.ExtractFromQuery(q)
@@ -113,7 +117,7 @@ func collectDashboardUsage(ctx context.Context, graf *grafana.Client, used map[s
 			}
 		}
 	}
-	return nil
+	return warnings, nil
 }
 
 // collectRuleUsage records every metric referenced by an alerting or
