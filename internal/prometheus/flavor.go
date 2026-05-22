@@ -69,7 +69,7 @@ func (c *Client) ensureFlavor(ctx context.Context) error {
 	}
 	flavor, err := c.detectFlavor(ctx)
 	if err != nil && (errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)) {
-		// Transient — do not cache. Next call retries.
+		// Transient - do not cache. Next call retries.
 		return err
 	}
 	c.flavor = flavor

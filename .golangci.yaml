@@ -1,4 +1,4 @@
-# .golangci.yaml — pinned: golangci-lint v2.12.1
+# .golangci.yaml - pinned: golangci-lint v2.12.1
 version: "2"
 
 run:

@@ -19,7 +19,7 @@ import (
 func (r *Renderer) RenderFindings(fs []findings.Finding) error {
 	if len(fs) == 0 {
 		// Empty input is a defensive no-op; the CLI owns the user-facing
-		// empty-state message (analyzer-aware) — see internal/cli/empty.go.
+		// empty-state message (analyzer-aware) - see internal/cli/empty.go.
 		return nil
 	}
 

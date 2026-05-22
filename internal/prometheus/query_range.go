@@ -20,7 +20,7 @@ type QueryRangeResult struct {
 	Result     []Series `json:"result"`
 }
 
-// Series is one matrix series — label set plus an ordered list of samples.
+// Series is one matrix series - label set plus an ordered list of samples.
 type Series struct {
 	Metric map[string]string `json:"metric"`
 	Values []SamplePair      `json:"values"`

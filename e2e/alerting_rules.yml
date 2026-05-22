@@ -8,11 +8,11 @@ groups:
         labels:
           severity: info
         annotations:
-          summary: "Always false — should never fire."
+          summary: "Always false - should never fire."
       - alert: RemetricAlwaysFiring
         expr: vector(1)
         for: 0s
         labels:
           severity: warning
         annotations:
-          summary: "Always true — should fire continuously."
+          summary: "Always true - should fire continuously."

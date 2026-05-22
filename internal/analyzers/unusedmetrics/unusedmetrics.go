@@ -53,7 +53,7 @@ func (a *Analyzer) Analyze(ctx context.Context, d analyzers.Deps) (analyzers.Res
 	warnings = append(warnings, dashWarnings...)
 	if err := collectRuleUsage(ctx, d, used); err != nil {
 		if errors.Is(err, errRulesUnavailable) {
-			warnings = append(warnings, "rules unavailable: VictoriaMetrics detected without --vmalert URL — recording rules ignored")
+			warnings = append(warnings, "rules unavailable: VictoriaMetrics detected without --vmalert URL - recording rules ignored")
 		} else {
 			return analyzers.Result{}, err
 		}
@@ -122,7 +122,7 @@ func collectDashboardUsage(ctx context.Context, graf *grafana.Client, used map[s
 
 // collectRuleUsage records every metric referenced by an alerting or
 // recording rule expression, plus the output name of each recording
-// rule. When d.VMAlert is non-nil it is preferred over d.Prom — this
+// rule. When d.VMAlert is non-nil it is preferred over d.Prom - this
 // covers the VictoriaMetrics topology where vmselect (the main client)
 // does not serve /api/v1/rules but vmalert does.
 //
@@ -130,7 +130,7 @@ func collectDashboardUsage(ctx context.Context, graf *grafana.Client, used map[s
 // (a non-fatal sentinel) so callers can degrade gracefully. Two paths
 // reach that sentinel: the rule call 404s (older VM builds, or non-VM
 // gateways), or it returns 200 with empty/partial groups (real VM
-// single-node behavior — vmselect serves the endpoint but recording
+// single-node behavior - vmselect serves the endpoint but recording
 // rules live in vmalert which we don't have a URL for). We cannot
 // distinguish "no rules configured anywhere" from "rules live in
 // vmalert we can't see", so we warn either way.
@@ -154,7 +154,7 @@ func collectRuleUsage(ctx context.Context, d analyzers.Deps, used map[string]str
 	}
 	// Real-world VictoriaMetrics single-node serves /api/v1/rules at HTTP
 	// 200 with `{"data":{"groups":[]}}` (or a partial view), because
-	// recording rules are owned by vmalert — a separate process. Without
+	// recording rules are owned by vmalert - a separate process. Without
 	// a --vmalert URL we cannot trust this payload to be complete, so
 	// short-circuit to the same warning the 404 path takes.
 	if d.VMAlert == nil {

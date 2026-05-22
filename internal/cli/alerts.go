@@ -119,7 +119,7 @@ func newAlertsByClassCmd(use, classSuffix, short string) *cobra.Command {
 				filtered = filtered[:limit]
 			}
 			if len(filtered) == 0 {
-				// Limit truncated everything to zero — show the "no results" copy, not the severity hint.
+				// Limit truncated everything to zero - show the "no results" copy, not the severity hint.
 				return renderEmpty(cfg, cmd.OutOrStdout(), alertsCopy(use), minSev, 0, nil)
 			}
 			if err := renderFindings(cfg, cmd.OutOrStdout(), filtered); err != nil {

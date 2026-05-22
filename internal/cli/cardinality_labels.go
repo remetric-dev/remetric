@@ -131,7 +131,7 @@ func firstN(xs []string, n int) []string {
 
 func joinSamples(xs []string) string {
 	if len(xs) == 0 {
-		return "—"
+		return "-"
 	}
 	out := xs[0]
 	for _, s := range xs[1:] {

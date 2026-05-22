@@ -17,9 +17,9 @@ const sentinel = "__remetric_var__"
 
 // grafanaVarPattern matches Grafana template variables in three forms:
 //
-//	$name                    — bare-dollar form
-//	${name}                  — braced form
-//	${name:format}           — braced form with format modifier
+//	$name                    - bare-dollar form
+//	${name}                  - braced form
+//	${name:format}           - braced form with format modifier
 var grafanaVarPattern = regexp.MustCompile(`\$\{[^}]+\}|\$[a-zA-Z_][a-zA-Z0-9_]*`)
 
 // sanitiseGrafanaVars replaces every Grafana template variable in

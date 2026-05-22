@@ -33,7 +33,7 @@ var (
 		Subject:   "suspicious labels",
 	}
 	unusedMetricsCopy = emptyCopy{
-		NoResults: "No unused metrics found — every ingested metric is referenced by a dashboard, alert, or recording rule.",
+		NoResults: "No unused metrics found - every ingested metric is referenced by a dashboard, alert, or recording rule.",
 		Subject:   "unused metrics",
 	}
 )
@@ -60,11 +60,11 @@ func filterAtLeast(fs []findings.Finding, min findings.Severity) []findings.Find
 
 // renderEmpty writes the appropriate empty-state output for cfg.Output.
 //
-// When totalCount == 0 the analyzer produced no findings at all — show
+// When totalCount == 0 the analyzer produced no findings at all - show
 // copy.NoResults plus a doctor hint.
 //
 // When totalCount > 0 but the slice handed to the renderer is empty,
-// every finding was below minSev — show a filter hint with the
+// every finding was below minSev - show a filter hint with the
 // severity distribution and an actionable `--min-severity` suggestion.
 //
 // JSON output ignores the empty-state copy entirely and emits the

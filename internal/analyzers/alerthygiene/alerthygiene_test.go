@@ -66,7 +66,7 @@ func TestClassify(t *testing.T) {
 			want:       classAlwaysFiring,
 		},
 		{
-			name: "firing 50% — not classified",
+			name: "firing 50% - not classified",
 			series: []prom.Series{
 				{
 					Metric: map[string]string{"alertstate": "firing"},
@@ -266,7 +266,7 @@ func TestAlertHygiene_VictoriaWithoutVMAlertWarns(t *testing.T) {
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
 
-	// Intentionally no WithFlavorHint — exercise live detection.
+	// Intentionally no WithFlavorHint - exercise live detection.
 	c, err := prom.New(srv.URL)
 	if err != nil {
 		t.Fatalf("New: %v", err)

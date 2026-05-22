@@ -148,7 +148,7 @@ func TestEnsureFlavor_DoesNotCacheCtxError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	// First call with a pre-cancelled context — should error, not cache.
+	// First call with a pre-cancelled context - should error, not cache.
 	cancelled, cancel := context.WithCancel(context.Background())
 	cancel()
 	if err := c.ensureFlavor(cancelled); err == nil {
@@ -157,7 +157,7 @@ func TestEnsureFlavor_DoesNotCacheCtxError(t *testing.T) {
 	if c.Flavor() != FlavorUnknown {
 		t.Errorf("Flavor() after cancelled detect = %v, want FlavorUnknown", c.Flavor())
 	}
-	// Second call with a fresh context — should succeed and not be sticky.
+	// Second call with a fresh context - should succeed and not be sticky.
 	if err := c.ensureFlavor(context.Background()); err != nil {
 		t.Fatalf("retry after ctx cancel: %v", err)
 	}

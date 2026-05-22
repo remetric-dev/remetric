@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>remetric report — http://prom:9090</title>
+<title>remetric report - http://prom:9090</title>
 <style>:root { color-scheme: light dark; --bg:#fff; --fg:#222; --muted:#666; --accent:#0a58ca; }
 @media (prefers-color-scheme: dark) { :root { --bg:#111; --fg:#eee; --muted:#aaa; --accent:#7aa6ff; } }
 body { font-family: -apple-system, system-ui, sans-serif; margin: 0; padding: 1.5rem; background: var(--bg); color: var(--fg); max-width: 64rem; margin: 0 auto; }

@@ -17,7 +17,7 @@ import (
 // Deps groups the dependencies passed to an analyzer at Analyze time.
 type Deps struct {
 	Prom *prometheus.Client
-	// Graf may be nil — analyzers that need Grafana skip when absent.
+	// Graf may be nil - analyzers that need Grafana skip when absent.
 	Graf *grafana.Client
 	// VMAlert is an optional second client pointed at vmalert for /api/v1/rules.
 	// When nil, analyzers fall back to Prom for rule queries.

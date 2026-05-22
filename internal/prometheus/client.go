@@ -57,7 +57,7 @@ func New(rawURL string, opts ...Option) (*Client, error) {
 		opt(c)
 		switch a := c.auth.(type) {
 		case noAuth:
-			_ = a // explicitly skipping noAuth — only happens before any auth option fires
+			_ = a // explicitly skipping noAuth - only happens before any auth option fires
 		default:
 			t := reflect.TypeOf(c.auth)
 			if firstAuthType == nil {

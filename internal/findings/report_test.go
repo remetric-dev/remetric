@@ -146,7 +146,7 @@ func TestNewReport_DoesNotAliasInput(t *testing.T) {
 		{ID: "a", Severity: SeverityCritical, Impact: Impact{SeriesReduction: 100}},
 	}
 	r := NewReport("0.2.0", fs)
-	// Mutate caller's slice — Report.Findings must NOT be affected.
+	// Mutate caller's slice - Report.Findings must NOT be affected.
 	fs[0].ID = "mutated"
 	if r.Findings[0].ID != "a" {
 		t.Errorf("Report.Findings aliased caller's slice: got ID=%q, want %q", r.Findings[0].ID, "a")

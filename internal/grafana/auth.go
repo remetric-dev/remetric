@@ -17,7 +17,7 @@ type noAuth struct{}
 
 func (noAuth) apply(*http.Request) {}
 
-// bearerAuth installs `Authorization: Bearer <token>` — used by
+// bearerAuth installs `Authorization: Bearer <token>` - used by
 // Grafana service-account API keys.
 type bearerAuth struct{ token string }
 

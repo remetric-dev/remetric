@@ -130,7 +130,7 @@ func fetchRules(ctx context.Context, d analyzers.Deps) (*prom.Rules, string, err
 		}
 	}
 	if notFound {
-		return nil, "alerthygiene: rules unavailable — endpoint returned 404", nil
+		return nil, "alerthygiene: rules unavailable - endpoint returned 404", nil
 	}
 	return rules, "", nil
 }
@@ -197,7 +197,7 @@ func (a *Analyzer) Analyze(ctx context.Context, d analyzers.Deps) (analyzers.Res
 	if waitErr != nil {
 		if errors.Is(waitErr, prom.ErrNotSupported) {
 			return analyzers.Result{
-				Warnings: []string{"alerthygiene: query_range not supported on backend — skipping analyzer"},
+				Warnings: []string{"alerthygiene: query_range not supported on backend - skipping analyzer"},
 			}, nil
 		}
 		return analyzers.Result{}, waitErr
@@ -282,12 +282,12 @@ func buildFinding(r prom.Rule, g prom.RuleGroup, cls classification, ratio float
 			Category: findings.CategoryAlertHygiene,
 			Title:    fmt.Sprintf("Alert %s firing %.1f%% of window (%d/%d steps)", r.Name, clamped*100, firing, steps),
 			Evidence: findings.Evidence{
-				Description: fmt.Sprintf("firing %.1f%% of %s lookback — likely broken threshold (alertname=%s, file=%s, group=%s)",
+				Description: fmt.Sprintf("firing %.1f%% of %s lookback - likely broken threshold (alertname=%s, file=%s, group=%s)",
 					clamped*100, lookback, r.Name, g.File, g.Name),
 			},
 			Fix: findings.Fix{
 				Type: "rule_change",
-				Config: fmt.Sprintf("# In %s, group %s: review threshold — alert is permanently firing\n- alert: %s\n  expr: %s",
+				Config: fmt.Sprintf("# In %s, group %s: review threshold - alert is permanently firing\n- alert: %s\n  expr: %s",
 					g.File, g.Name, r.Name, r.Query),
 			},
 		}

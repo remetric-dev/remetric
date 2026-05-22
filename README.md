@@ -1,12 +1,12 @@
 # remetric
 
-Re-metric your stack — find waste in Prometheus, Grafana & Loki.
+Re-metric your stack - find waste in Prometheus, Grafana & Loki.
 
 `remetric` is a read-only doctor for self-hosted Prometheus stacks. Point it at a
 Prometheus server and it prints a ranked, actionable list of cardinality
 problems with suggested `metric_relabel_configs` fixes.
 
-> Status: **alpha** — cardinality, label-pattern, unused-metric, and
+> Status: **alpha** - cardinality, label-pattern, unused-metric, and
 > alert-hygiene analyzers are wired up. JSON output, Grafana integration,
 > unified `remetric scan`, and HTML/Markdown reports shipped.
 
@@ -29,12 +29,12 @@ Multi-arch image (`linux/amd64`, `linux/arm64`).
 Pick the invocation that matches where Prometheus is running:
 
 ```bash
-# Prometheus on the host (Linux) — share the host network
+# Prometheus on the host (Linux) - share the host network
 docker run --rm --net=host \
   ghcr.io/remetric-dev/remetric:latest \
   doctor --prometheus http://127.0.0.1:9090
 
-# Prometheus on the host (macOS / Windows Docker Desktop) — use the magic DNS name
+# Prometheus on the host (macOS / Windows Docker Desktop) - use the magic DNS name
 docker run --rm \
   ghcr.io/remetric-dev/remetric:latest \
   doctor --prometheus http://host.docker.internal:9090
@@ -44,7 +44,7 @@ docker run --rm \
   ghcr.io/remetric-dev/remetric:latest \
   doctor --prometheus https://prom.example.com
 
-# Prometheus in the same docker network (compose / k8s) — use the service name
+# Prometheus in the same docker network (compose / k8s) - use the service name
 docker run --rm --network my-prom-net \
   ghcr.io/remetric-dev/remetric:latest \
   doctor --prometheus http://prometheus:9090
@@ -62,7 +62,7 @@ git clone https://github.com/remetric-dev/remetric
 cd remetric
 make build
 
-# in another shell — spin up an e2e Prometheus stack
+# in another shell - spin up an e2e Prometheus stack
 make e2e-up
 sleep 10
 
@@ -115,7 +115,7 @@ remetric scan \
   --grafana http://localhost:3000
 ```
 
-`scan` emits a `findings.Report` (see spec §5.5) — combine with `--output json`
+`scan` emits a `findings.Report` (see spec §5.5) - combine with `--output json`
 for CI.
 
 ## VictoriaMetrics support
@@ -151,7 +151,7 @@ exist for split-credential setups; if omitted, vmalert inherits auth from
 
 ### Known limitations
 
-- `doctor` shows `retention: n/a` — VM does not expose
+- `doctor` shows `retention: n/a` - VM does not expose
   `/api/v1/status/runtimeinfo`.
 - `cardinality top` derives `numSeries` by summing
   `seriesCountByMetricName` (VM does not return `headStats`).
@@ -195,7 +195,7 @@ remetric report --prometheus http://localhost:9090 \
 
 Formats: `terminal` (default), `json`, `html`, `markdown`. Use `--out FILE`
 to write to a file, or `-` (the default) for stdout. The global `--output`
-flag is ignored by `report` — use `--format` instead.
+flag is ignored by `report` - use `--format` instead.
 
 ## Commands
 
@@ -213,23 +213,23 @@ flag is ignored by `report` — use `--format` instead.
 
 Global flags (subset; see `--help` for the full list):
 
-- `--prometheus URL` — Prometheus base URL. Env: `REMETRIC_PROMETHEUS_URL`.
-- `--prom-token TOK` — Bearer token. Env: `REMETRIC_PROMETHEUS_TOKEN`.
-- `--grafana URL` — Grafana base URL. Env: `REMETRIC_GRAFANA_URL`.
-- `--grafana-token TOK` — Grafana service-account API key. Env: `REMETRIC_GRAFANA_TOKEN`.
-- `--grafana-basic-auth USER:PASS` — Basic auth for Grafana.
-- `--grafana-tls-skip-verify` — Skip TLS verification for Grafana.
-- `--backend {auto|prometheus|victoria}` — backend dialect. Env: `REMETRIC_BACKEND`.
-- `--vmalert URL` — vmalert base URL for /api/v1/rules. Env: `REMETRIC_VMALERT_URL`.
-- `--vmalert-token TOK` — Bearer for vmalert (inherits from --prom-token if unset). Env: `REMETRIC_VMALERT_TOKEN`.
-- `--vmalert-basic-auth USER:PASS` — Basic auth for vmalert (inherits from --prom-basic-auth if unset).
-- `--vmalert-tls-skip-verify` — Skip TLS verify for vmalert.
-- `--prom-basic-auth USER:PASS` — Basic auth.
-- `--prom-max-in-flight N` — Concurrency cap (default 5).
-- `--output FORMAT` — `terminal` (default) or `json`.
-- `--fail-on SEV` — Exit 3 if any finding is at or above this severity. Env: `REMETRIC_FAIL_ON`. Default `none`.
-- `--no-color` — Disable colored output (`NO_COLOR` env also respected).
-- `--verbose` — Debug-level slog logging on stderr.
+- `--prometheus URL` - Prometheus base URL. Env: `REMETRIC_PROMETHEUS_URL`.
+- `--prom-token TOK` - Bearer token. Env: `REMETRIC_PROMETHEUS_TOKEN`.
+- `--grafana URL` - Grafana base URL. Env: `REMETRIC_GRAFANA_URL`.
+- `--grafana-token TOK` - Grafana service-account API key. Env: `REMETRIC_GRAFANA_TOKEN`.
+- `--grafana-basic-auth USER:PASS` - Basic auth for Grafana.
+- `--grafana-tls-skip-verify` - Skip TLS verification for Grafana.
+- `--backend {auto|prometheus|victoria}` - backend dialect. Env: `REMETRIC_BACKEND`.
+- `--vmalert URL` - vmalert base URL for /api/v1/rules. Env: `REMETRIC_VMALERT_URL`.
+- `--vmalert-token TOK` - Bearer for vmalert (inherits from --prom-token if unset). Env: `REMETRIC_VMALERT_TOKEN`.
+- `--vmalert-basic-auth USER:PASS` - Basic auth for vmalert (inherits from --prom-basic-auth if unset).
+- `--vmalert-tls-skip-verify` - Skip TLS verify for vmalert.
+- `--prom-basic-auth USER:PASS` - Basic auth.
+- `--prom-max-in-flight N` - Concurrency cap (default 5).
+- `--output FORMAT` - `terminal` (default) or `json`.
+- `--fail-on SEV` - Exit 3 if any finding is at or above this severity. Env: `REMETRIC_FAIL_ON`. Default `none`.
+- `--no-color` - Disable colored output (`NO_COLOR` env also respected).
+- `--verbose` - Debug-level slog logging on stderr.
 
 ## What's still missing in v0.1
 

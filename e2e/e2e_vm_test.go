@@ -127,7 +127,7 @@ func TestE2E_VM_UnusedWithoutVMAlert(t *testing.T) {
 	}
 	trimmed := strings.TrimSpace(stdout)
 	if !strings.HasPrefix(trimmed, "[") {
-		// Empty-state or non-array document — skip the membership check.
+		// Empty-state or non-array document - skip the membership check.
 		return
 	}
 	var fs []map[string]any

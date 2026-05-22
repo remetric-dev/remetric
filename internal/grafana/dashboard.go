@@ -29,8 +29,8 @@ type target struct {
 }
 
 // datasource handles two shapes Grafana emits:
-//  1. {"datasource": "Prometheus"}      — legacy string
-//  2. {"datasource": {"type": "prometheus", "uid": "..."}} — modern
+//  1. {"datasource": "Prometheus"}      - legacy string
+//  2. {"datasource": {"type": "prometheus", "uid": "..."}} - modern
 //
 // Both unmarshal into the same struct. Type defaults to "" for the
 // legacy string form; that case is treated as Prometheus.
@@ -44,7 +44,7 @@ func (d *datasource) UnmarshalJSON(b []byte) error {
 		if err := json.Unmarshal(b, &s); err != nil {
 			return err
 		}
-		// Legacy string datasource — treat as Prometheus by default.
+		// Legacy string datasource - treat as Prometheus by default.
 		d.Type = "prometheus"
 		return nil
 	}

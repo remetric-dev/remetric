@@ -14,7 +14,7 @@ func (r *Renderer) RenderDoctor(rep findings.DoctorReport) error {
 	w := &errWriter{w: r.w}
 	header := r.st.header.Render("remetric doctor")
 	elapsed := time.Duration(rep.ElapsedMs) * time.Millisecond
-	w.printf("%s — %s (in %s)\n\n", header, rep.PrometheusURL, elapsed)
+	w.printf("%s - %s (in %s)\n\n", header, rep.PrometheusURL, elapsed)
 
 	mark := func(ok bool) string {
 		if ok {

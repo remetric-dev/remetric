@@ -34,7 +34,7 @@ func WithTimeout(d time.Duration) Option {
 }
 
 // WithMaxInFlight bounds concurrent outbound requests; default is 5. Values
-// below 1 are clamped to 1 — a non-positive bound would deadlock semaphore
+// below 1 are clamped to 1 - a non-positive bound would deadlock semaphore
 // consumers (errgroup, client.sem).
 func WithMaxInFlight(n int) Option {
 	return func(c *Client) {

@@ -82,7 +82,7 @@ func (a *Analyzer) Analyze(ctx context.Context, d analyzers.Deps) (analyzers.Res
 		descSuffix := ""
 		if !looksUnbounded(samples) {
 			sev = downgradeOnce(sev)
-			descSuffix = " (sampled values look bounded — possible false positive)"
+			descSuffix = " (sampled values look bounded - possible false positive)"
 		}
 		impact := EstimateImpact(seriesAffected, uniq)
 

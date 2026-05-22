@@ -1,5 +1,5 @@
 #!/usr/bin/env sh
-# remetric install script — see https://github.com/remetric-dev/remetric
+# remetric install script - see https://github.com/remetric-dev/remetric
 set -eu
 
 REPO="remetric-dev/remetric"
@@ -62,6 +62,6 @@ chmod +x "$INSTALL_DIR/remetric"
 
 echo "remetric: installed to ${INSTALL_DIR}/remetric"
 if ! echo ":$PATH:" | grep -q ":${INSTALL_DIR}:"; then
-  echo "remetric: ${INSTALL_DIR} is not in your PATH — add it to use 'remetric' from any shell"
+  echo "remetric: ${INSTALL_DIR} is not in your PATH - add it to use 'remetric' from any shell"
 fi
 "$INSTALL_DIR/remetric" --version

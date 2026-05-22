@@ -26,7 +26,7 @@ func newCardinalitySuspiciousCmd() *cobra.Command {
 		Use:   "suspicious",
 		Short: "Flag labels whose names match well-known unbounded-identifier patterns.",
 		Long: `Scans the TSDB top-N labels for names that look like unbounded
-identifiers — UUIDs, request paths, trace/span ids, email-like values,
+identifiers - UUIDs, request paths, trace/span ids, email-like values,
 session tokens, and anything ending in _id.
 
 Severity scales with the number of unique values:

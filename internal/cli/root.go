@@ -19,7 +19,7 @@ import (
 	"github.com/remetric-dev/remetric/internal/config"
 )
 
-// Args is the input bundle for ExecuteWith — used in tests so we can swap
+// Args is the input bundle for ExecuteWith - used in tests so we can swap
 // stdout/stderr.
 type Args struct {
 	Version string

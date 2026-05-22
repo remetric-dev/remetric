@@ -52,7 +52,7 @@ func LabelPatternSeverity(uniqueValues int) findings.Severity {
 
 // UnusedMetricSeverity grades an unused metric by its head series
 // count. Thresholds are lower than CardinalitySeverity because the
-// false-positive risk is higher — a metric only used in an ad-hoc
+// false-positive risk is higher - a metric only used in an ad-hoc
 // query would be flagged "unused" here, and we don't want to scream
 // "Critical" at it.
 //

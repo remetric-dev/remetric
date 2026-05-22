@@ -137,7 +137,7 @@ func TestScan_IncludesAlertHygieneRunner(t *testing.T) {
 		t.Errorf("scan did not call /api/v1/rules")
 	}
 	if !queryRangeHit {
-		t.Errorf("scan did not call /api/v1/query_range — alerthygiene analyzer not wired into scan runners")
+		t.Errorf("scan did not call /api/v1/query_range - alerthygiene analyzer not wired into scan runners")
 	}
 	if !strings.Contains(stdout.String(), "NeverFires") {
 		t.Errorf("scan output missing NeverFires finding:\n%s", stdout.String())

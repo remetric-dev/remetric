@@ -19,7 +19,7 @@ var defaultPatternSources = []string{
 }
 
 // boundedLabels are operational labels that never get flagged regardless
-// of name shape — they may have high cardinality by convention but
+// of name shape - they may have high cardinality by convention but
 // dropping them would break dashboards. v0.1 hard-codes the list; a
 // future phase will expose it via config.
 var boundedLabels = map[string]bool{

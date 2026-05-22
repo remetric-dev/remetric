@@ -30,7 +30,7 @@ func newScanCmd() *cobra.Command {
 		Short: "Run every available analyzer and emit a unified report.",
 		Long: `Orchestrates cardinality, label-pattern, alert-hygiene, and
 (if --grafana is set) unused-metrics analyzers. Findings are merged
-into a single findings.Report shape — see the JSON schema in the spec.`,
+into a single findings.Report shape - see the JSON schema in the spec.`,
 		Example: `  # Full scan with Grafana
   remetric scan --prometheus http://localhost:9090 --grafana http://localhost:3000
 
@@ -124,7 +124,7 @@ into a single findings.Report shape — see the JSON schema in the spec.`,
 }
 
 // buildReport assembles a Report with Target + Overview populated
-// from a fresh Prom call. Errors fetching metadata degrade silently —
+// from a fresh Prom call. Errors fetching metadata degrade silently -
 // the report renders without those fields rather than failing the scan.
 func buildReport(cmd *cobra.Command, cfg *config.Config, fs []findings.Finding, promClient *prom.Client) *findings.Report {
 	rep := findings.NewReport(cmd.Root().Version, fs)

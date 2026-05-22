@@ -18,7 +18,7 @@ type Report struct {
 	Findings  []Finding `json:"findings"`
 	Summary   Summary   `json:"summary"`
 	// Warnings carries non-fatal degradation messages collected from analyzers
-	// (e.g., "vmalert URL not configured — recording rules ignored"). Omitted
+	// (e.g., "vmalert URL not configured - recording rules ignored"). Omitted
 	// from JSON when empty.
 	Warnings []string `json:"warnings,omitempty"`
 }

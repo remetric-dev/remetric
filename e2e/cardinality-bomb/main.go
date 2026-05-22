@@ -26,7 +26,7 @@ func main() {
 		_, _ = fmt.Fprint(w, body)
 	})
 	http.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = fmt.Fprintln(w, "cardinality-bomb — see /metrics")
+		_, _ = fmt.Fprintln(w, "cardinality-bomb - see /metrics")
 	})
 
 	addr := ":8080"
@@ -59,7 +59,7 @@ func buildMetrics(n int) string {
 			uid, tid, path, rand.Intn(100))
 	}
 
-	// A metric nobody references — useful for `remetric metrics unused`.
+	// A metric nobody references - useful for `remetric metrics unused`.
 	sb.WriteString("\n# HELP orphan_metric_total A metric exposed but never queried.\n")
 	sb.WriteString("# TYPE orphan_metric_total counter\n")
 	sb.WriteString("orphan_metric_total 42\n")

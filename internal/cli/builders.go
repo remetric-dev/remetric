@@ -18,7 +18,7 @@ import (
 // (common case for vmauth-fronted clusters).
 //
 // The returned client carries WithFlavorHint(FlavorProm) since vmalert
-// speaks the Prometheus rules-API dialect — no detection round-trip needed.
+// speaks the Prometheus rules-API dialect - no detection round-trip needed.
 func buildVMAlertClient(cfg *config.Config, ua string) (*prom.Client, error) {
 	if cfg.VMAlert.URL == "" {
 		return nil, nil

@@ -20,7 +20,7 @@ import (
 //   - the sample contains both non-digits AND a separator (`-`, `_`, `/`, `.`)
 //
 // Returns false (looks bounded) when all samples are short, similar
-// length, and digit-dominated — the canonical small-enum shape.
+// length, and digit-dominated - the canonical small-enum shape.
 func looksUnbounded(values []string) bool {
 	if len(values) == 0 {
 		return true
