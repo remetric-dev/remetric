@@ -13,6 +13,12 @@ curl -sSL https://remetric.dev/install.sh | sh
 Override the destination with `REMETRIC_INSTALL_DIR=/usr/local/bin sh install.sh`,
 or pin a specific version via `REMETRIC_VERSION=v0.1.0 sh install.sh`.
 
+On macOS or Linux with [Homebrew](https://brew.sh):
+
+```bash
+brew install remetric-dev/tap/remetric
+```
+
 Prefer containers? A multi-arch image is published as
 `ghcr.io/remetric-dev/remetric:latest` (`linux/amd64`, `linux/arm64`).
 
