@@ -95,10 +95,19 @@ homebrew_casks:
     directory: Casks
     homepage: "https://remetric.dev"
     description: "Re-metric your stack - find waste in Prometheus, Grafana & Loki"
-    binary: "remetric"
+    binaries: ["remetric"]
     commit_author:
       name: "remetric-dev-bot"
       email: "noreply@remetric.dev"
+    # Strip macOS Gatekeeper quarantine on install so the unsigned binary
+    # actually executes. Once we sign + notarize (Apple Developer Program),
+    # remove this hook block and let Gatekeeper verify normally.
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/remetric"]
+          end
     # Publish on every tag, including pre-releases (v0.1.0-rc.N), so we can
     # validate the tap end-to-end before v0.1.0. Switch to `auto` post-v0.1
     # if you want to stop polluting the tap with alphas.
