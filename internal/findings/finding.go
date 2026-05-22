@@ -20,6 +20,7 @@ type Finding struct {
 	ID       string   `json:"id"`
 	Severity Severity `json:"severity"`
 	Category Category `json:"category"`
+	Class    Class    `json:"class,omitempty"`
 	Title    string   `json:"title"`
 	Metric   string   `json:"metric,omitempty"`
 	Alert    string   `json:"alert,omitempty"`

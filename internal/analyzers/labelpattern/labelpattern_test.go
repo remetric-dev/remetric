@@ -90,6 +90,9 @@ func TestAnalyzer_DetectsIdSuffix(t *testing.T) {
 	if f.Category != findings.CategoryLabelPatterns {
 		t.Errorf("Category = %v, want %v", f.Category, findings.CategoryLabelPatterns)
 	}
+	if got := f.Class; got != findings.ClassLabelPatternOverlyGranular {
+		t.Errorf("Class = %q, want %q", got, findings.ClassLabelPatternOverlyGranular)
+	}
 	if f.Severity != findings.SeverityHigh {
 		// 5000 unique values → High (LabelPatternSeverity: >1000 → High, >5000 → Critical, 5000 not > 5000)
 		t.Errorf("Severity = %v, want High", f.Severity)

@@ -189,6 +189,7 @@ func buildFinding(name string, series int64) (findings.Finding, error) {
 		ID:       "unused-" + name,
 		Severity: scoring.UnusedMetricSeverity(series),
 		Category: findings.CategoryUnusedMetrics,
+		Class:    findings.ClassUnusedMetric,
 		Title:    fmt.Sprintf("metric %q is not referenced by any dashboard, alert, or recording rule", name),
 		Metric:   name,
 		Evidence: findings.Evidence{

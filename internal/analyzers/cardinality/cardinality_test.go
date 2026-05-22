@@ -67,6 +67,9 @@ func TestCardinalityAnalyzer_TopMetric(t *testing.T) {
 	if f.Category != findings.CategoryCardinality {
 		t.Errorf("Category = %q, want %q", f.Category, findings.CategoryCardinality)
 	}
+	if got := f.Class; got != findings.ClassHotLabel {
+		t.Errorf("Class = %q, want %q", got, findings.ClassHotLabel)
+	}
 }
 
 func TestCardinalityAnalyzer_Name(t *testing.T) {

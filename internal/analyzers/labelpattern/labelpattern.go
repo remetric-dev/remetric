@@ -95,6 +95,7 @@ func (a *Analyzer) Analyze(ctx context.Context, d analyzers.Deps) (analyzers.Res
 			ID:       "label-" + lbl.Name,
 			Severity: sev,
 			Category: findings.CategoryLabelPatterns,
+			Class:    findings.ClassLabelPatternOverlyGranular,
 			Title:    fmt.Sprintf("suspicious label %q with %d unique values across %d metrics", lbl.Name, uniq, len(metrics)),
 			Evidence: findings.Evidence{
 				Label:        lbl.Name,

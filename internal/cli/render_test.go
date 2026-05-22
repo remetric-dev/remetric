@@ -128,3 +128,47 @@ func TestRenderFormat_Terminal_SingularIgnoredFooter(t *testing.T) {
 		t.Errorf("should not pluralise on n=1:\n%s", buf.String())
 	}
 }
+
+func TestRenderFindings_JSON_FillsDocURL(t *testing.T) {
+	// renderFindings must populate DocURL from Class before the JSON
+	// renderer serialises the slice, so consumers see the documentation_url
+	// field even when analyzers leave it blank.
+	fs := []findings.Finding{
+		{
+			ID:       "card-foo-bar",
+			Severity: findings.SeverityHigh,
+			Category: findings.CategoryCardinality,
+			Class:    findings.ClassHotLabel,
+		},
+	}
+	var buf bytes.Buffer
+	cfg := &config.Config{Output: "json"}
+	if err := renderFindings(cfg, &buf, fs, 0); err != nil {
+		t.Fatalf("renderFindings: %v", err)
+	}
+	want := `"documentation_url": "https://remetric.dev/findings/hot-label"`
+	if !strings.Contains(buf.String(), want) {
+		t.Errorf("JSON output missing %q:\n%s", want, buf.String())
+	}
+}
+
+func TestRenderFormat_JSON_FillsDocURL(t *testing.T) {
+	// renderFormat must perform the same Class -> DocURL fill so that
+	// report-mode JSON output also carries documentation_url.
+	r := findings.NewReport("1.0", []findings.Finding{
+		{
+			ID:       "unused-metric_x",
+			Severity: findings.SeverityMedium,
+			Category: findings.CategoryUnusedMetrics,
+			Class:    findings.ClassUnusedMetric,
+		},
+	})
+	var buf bytes.Buffer
+	if err := renderFormat(&buf, "json", r, true); err != nil {
+		t.Fatalf("renderFormat: %v", err)
+	}
+	want := `"documentation_url": "https://remetric.dev/findings/unused-metric"`
+	if !strings.Contains(buf.String(), want) {
+		t.Errorf("JSON report output missing %q:\n%s", want, buf.String())
+	}
+}

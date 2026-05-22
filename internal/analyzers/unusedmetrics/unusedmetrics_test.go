@@ -113,6 +113,9 @@ func TestAnalyzer_DiffsCorrectly(t *testing.T) {
 	if out[0].Category != findings.CategoryUnusedMetrics {
 		t.Errorf("category = %v, want CategoryUnusedMetrics", out[0].Category)
 	}
+	if got := out[0].Class; got != findings.ClassUnusedMetric {
+		t.Errorf("Class = %q, want %q", got, findings.ClassUnusedMetric)
+	}
 	if out[0].Fix.Type != "drop_metric" {
 		t.Errorf("fix.type = %q, want drop_metric", out[0].Fix.Type)
 	}
