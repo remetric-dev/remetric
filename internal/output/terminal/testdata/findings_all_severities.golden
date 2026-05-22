@@ -1,10 +1,10 @@
-┌──────────┬──────────────────────────────┬───────────────────────┬─────────┬────────┬────────────────┐
-│ SEVERITY │ METRIC                       │ LABEL                 │ SERIES  │ UNIQUE │ EST. REDUCTION │
-├──────────┼──────────────────────────────┼───────────────────────┼─────────┼────────┼────────────────┤
-│ CRITICAL │ istio_requests_total         │ destination_principal │ 487,234 │ 5,234  │ ~487,141       │
-│ HIGH     │ etcd_request_duration_secon… │ grpc_method           │ 124,540 │ 148    │ ~123,699       │
-│ MEDIUM   │ node_filesystem_size_bytes   │ device                │ 31,200  │ 52     │ ~30,600        │
-└──────────┴──────────────────────────────┴───────────────────────┴─────────┴────────┴────────────────┘
+┌──────────┬───────────┬──────────────────────────────┬───────────────────────┬─────────┬────────┬────────────────┐
+│ SEVERITY │ CLASS     │ METRIC                       │ LABEL                 │ SERIES  │ UNIQUE │ EST. REDUCTION │
+├──────────┼───────────┼──────────────────────────────┼───────────────────────┼─────────┼────────┼────────────────┤
+│ CRITICAL │ hot-label │ istio_requests_total         │ destination_principal │ 487,234 │ 5,234  │ ~487,141       │
+│ HIGH     │ hot-label │ etcd_request_duration_secon… │ grpc_method           │ 124,540 │ 148    │ ~123,699       │
+│ MEDIUM   │ hot-label │ node_filesystem_size_bytes   │ device                │ 31,200  │ 52     │ ~30,600        │
+└──────────┴───────────┴──────────────────────────────┴───────────────────────┴─────────┴────────┴────────────────┘
 
 [CRITICAL] istio_requests_total  ·  destination_principal has 5,234 unique values
 Sample: spiffe://orders, spiffe://payments
