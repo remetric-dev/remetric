@@ -129,7 +129,6 @@ func TestAlertsAlwaysFiring_IgnoreAlertDropsFinding(t *testing.T) {
 	vals = strings.TrimSuffix(vals, ",")
 	firingBody := "{\"resultType\":\"matrix\",\"result\":[{\"metric\":{\"alertstate\":\"firing\"},\"values\":[" + vals + "]}]}"
 	srv := newAlertsStub(t, map[string]string{"BrokenAlert": firingBody})
-	defer srv.Close()
 	runJSONIgnoreCheck(t,
 		[]string{
 			"alerts", "always-firing",
