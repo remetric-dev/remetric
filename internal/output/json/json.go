@@ -36,6 +36,25 @@ func (r *Renderer) RenderFindings(fs []findings.Finding) error {
 	return r.encode(envelope)
 }
 
+// RenderFindingsWithIgnored is RenderFindings + an ignored counter.
+// When ignored == 0 the "ignored_count" key is omitted.
+func (r *Renderer) RenderFindingsWithIgnored(fs []findings.Finding, ignored int) error {
+	if fs == nil {
+		fs = []findings.Finding{}
+	}
+	rep := findings.NewReport("", fs)
+	envelope := struct {
+		Findings     []findings.Finding `json:"findings"`
+		Summary      findings.Summary   `json:"summary"`
+		IgnoredCount int                `json:"ignored_count,omitempty"`
+	}{
+		Findings:     fs,
+		Summary:      rep.Summary,
+		IgnoredCount: ignored,
+	}
+	return r.encode(envelope)
+}
+
 // RenderReport emits the full §5.5 schema.
 func (r *Renderer) RenderReport(rep *findings.Report) error {
 	if rep == nil {

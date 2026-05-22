@@ -141,6 +141,30 @@ func TestReport_OmitsEmptyWarnings(t *testing.T) {
 	}
 }
 
+func TestReport_IgnoredCountOmitEmpty(t *testing.T) {
+	r := NewReport("1.0", nil)
+	r.IgnoredCount = 0
+	b, err := json.Marshal(r)
+	if err != nil {
+		t.Fatalf("Marshal: %v", err)
+	}
+	if strings.Contains(string(b), `"ignored_count"`) {
+		t.Errorf("IgnoredCount=0 should be omitted: %s", b)
+	}
+}
+
+func TestReport_IgnoredCountEmitted(t *testing.T) {
+	r := NewReport("1.0", nil)
+	r.IgnoredCount = 3
+	b, err := json.Marshal(r)
+	if err != nil {
+		t.Fatalf("Marshal: %v", err)
+	}
+	if !strings.Contains(string(b), `"ignored_count":3`) {
+		t.Errorf("expected ignored_count:3 in JSON: %s", b)
+	}
+}
+
 func TestNewReport_DoesNotAliasInput(t *testing.T) {
 	fs := []Finding{
 		{ID: "a", Severity: SeverityCritical, Impact: Impact{SeriesReduction: 100}},

@@ -168,7 +168,10 @@ func renderFormat(w io.Writer, format string, rep *findings.Report, noColor bool
 		if err := writeTerminalWarnings(w, rep.Warnings, !noColor); err != nil {
 			return err
 		}
-		return terminal.New(w, terminal.WithColor(!noColor)).RenderFindings(rep.Findings)
+		if err := terminal.New(w, terminal.WithColor(!noColor)).RenderFindings(rep.Findings); err != nil {
+			return err
+		}
+		return writeTerminalIgnored(w, rep.IgnoredCount)
 	case "json":
 		return outjson.New(w).RenderReport(rep)
 	case "html":

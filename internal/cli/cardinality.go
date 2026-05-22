@@ -124,7 +124,7 @@ Severity thresholds (configurable via Phase 3):
 				return renderEmpty(cfg, cmd.OutOrStdout(), cardinalityCopy, minSev, 0, nil)
 			}
 
-			if err := renderFindings(cfg, cmd.OutOrStdout(), filtered); err != nil {
+			if err := renderFindings(cfg, cmd.OutOrStdout(), filtered, 0); err != nil {
 				return err
 			}
 			sev, enabled := cfg.FailOnThreshold()

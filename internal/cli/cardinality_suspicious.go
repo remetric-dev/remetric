@@ -101,7 +101,7 @@ environment) are explicitly ignored even when high-cardinality.`,
 				return renderEmpty(cfg, cmd.OutOrStdout(), labelPatternCopy, minSev, 0, nil)
 			}
 
-			if err := renderFindings(cfg, cmd.OutOrStdout(), filtered); err != nil {
+			if err := renderFindings(cfg, cmd.OutOrStdout(), filtered, 0); err != nil {
 				return err
 			}
 			sev, enabled := cfg.FailOnThreshold()

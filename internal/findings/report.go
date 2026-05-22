@@ -21,6 +21,9 @@ type Report struct {
 	// (e.g., "vmalert URL not configured - recording rules ignored"). Omitted
 	// from JSON when empty.
 	Warnings []string `json:"warnings,omitempty"`
+	// IgnoredCount is the number of findings dropped by --ignore-* patterns.
+	// Set at the CLI layer after Filter.Apply; omitted from JSON when zero.
+	IgnoredCount int `json:"ignored_count,omitempty"`
 }
 
 // Target identifies the scanned stack.

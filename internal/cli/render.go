@@ -14,14 +14,18 @@ import (
 )
 
 // renderFindings dispatches finding rendering based on cfg.Output.
-// Supported values: "terminal", "json".
-func renderFindings(cfg *config.Config, w io.Writer, fs []findings.Finding) error {
+// Supported values: "terminal", "json". The ignored parameter is the
+// number of findings dropped by --ignore-* (0 if filter unused).
+func renderFindings(cfg *config.Config, w io.Writer, fs []findings.Finding, ignored int) error {
 	switch cfg.Output {
 	case "", "terminal":
 		r := terminal.New(w, terminal.WithColor(!cfg.NoColor))
-		return r.RenderFindings(fs)
+		if err := r.RenderFindings(fs); err != nil {
+			return err
+		}
+		return writeTerminalIgnored(w, ignored)
 	case "json":
-		return outjson.New(w).RenderFindings(fs)
+		return outjson.New(w).RenderFindingsWithIgnored(fs, ignored)
 	default:
 		return fmt.Errorf("unsupported --output %q (want terminal|json)", cfg.Output)
 	}
@@ -48,12 +52,29 @@ func renderReport(cfg *config.Config, w io.Writer, rep *findings.Report) error {
 			return err
 		}
 		r := terminal.New(w, terminal.WithColor(!cfg.NoColor))
-		return r.RenderFindings(rep.Findings)
+		if err := r.RenderFindings(rep.Findings); err != nil {
+			return err
+		}
+		return writeTerminalIgnored(w, rep.IgnoredCount)
 	case "json":
 		return outjson.New(w).RenderReport(rep)
 	default:
 		return fmt.Errorf("unsupported --output %q (want terminal|json)", cfg.Output)
 	}
+}
+
+// writeTerminalIgnored prints a footer line summarizing the number of
+// findings dropped by --ignore-* patterns. Zero is a no-op.
+func writeTerminalIgnored(w io.Writer, ignored int) error {
+	if ignored == 0 {
+		return nil
+	}
+	word := "findings"
+	if ignored == 1 {
+		word = "finding"
+	}
+	_, err := fmt.Fprintf(w, "\nignored: %d %s (dropped by --ignore-*)\n", ignored, word)
+	return err
 }
 
 // writeTerminalWarnings prints each warning as a banner line above the

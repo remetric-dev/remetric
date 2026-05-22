@@ -109,3 +109,35 @@ func TestHTMLReport_Golden(t *testing.T) {
 		t.Errorf("output mismatch (run with -update to refresh):\nGOT:\n%s\nWANT:\n%s", buf.String(), string(want))
 	}
 }
+
+func TestRenderReport_HTML_IgnoredCountInSummary(t *testing.T) {
+	rep := &findings.Report{
+		Version:      "1.0",
+		ScannedAt:    time.Unix(1700000000, 0).UTC(),
+		Summary:      findings.Summary{BySeverity: map[string]int{"critical": 0, "high": 0, "medium": 0, "low": 0}},
+		IgnoredCount: 4,
+	}
+	var buf bytes.Buffer
+	if err := html.New(&buf).RenderReport(rep); err != nil {
+		t.Fatalf("RenderReport: %v", err)
+	}
+	if !strings.Contains(buf.String(), "Ignored") || !strings.Contains(buf.String(), "4") {
+		t.Errorf("expected 'Ignored' row with count 4 in HTML:\n%s", buf.String())
+	}
+}
+
+func TestRenderReport_HTML_IgnoredCountZeroHidden(t *testing.T) {
+	rep := &findings.Report{
+		Version:      "1.0",
+		ScannedAt:    time.Unix(1700000000, 0).UTC(),
+		Summary:      findings.Summary{BySeverity: map[string]int{"critical": 0, "high": 0, "medium": 0, "low": 0}},
+		IgnoredCount: 0,
+	}
+	var buf bytes.Buffer
+	if err := html.New(&buf).RenderReport(rep); err != nil {
+		t.Fatalf("RenderReport: %v", err)
+	}
+	if strings.Contains(buf.String(), ">Ignored<") {
+		t.Errorf("IgnoredCount=0 should be hidden: %s", buf.String())
+	}
+}
