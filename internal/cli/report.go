@@ -113,6 +113,7 @@ instead. Use --out FILE to write to a file (or '-' for stdout).`,
 				all = append(all, res.Findings...)
 				warnings = append(warnings, res.Warnings...)
 			}
+			all, ignored := cfg.IgnoreFilter().Apply(all)
 			filtered := filterAtLeast(all, minSev)
 			sort.SliceStable(filtered, func(i, j int) bool {
 				if filtered[i].Severity != filtered[j].Severity {
@@ -123,6 +124,7 @@ instead. Use --out FILE to write to a file (or '-' for stdout).`,
 
 			rep := buildReport(cmd, cfg, filtered, prom)
 			rep.Warnings = warnings
+			rep.IgnoredCount = ignored
 			rep.ScannedAt = time.Now().UTC()
 
 			out, closer, err := openOutput(cmd, outPath)
