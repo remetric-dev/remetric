@@ -52,6 +52,16 @@ func TestExtractFromQuery(t *testing.T) {
 			want: []string{}, // sentinel filtered, no real metric names captured
 		},
 		{
+			name: "grafana_var_suffix_concat",
+			in:   `${metric_name}_total`,
+			want: []string{}, // sanitises to __remetric_var___total - must be filtered as sentinel artifact
+		},
+		{
+			name: "grafana_var_prefix_concat",
+			in:   `foo_${suffix}`,
+			want: []string{}, // sanitises to foo___remetric_var__ - must be filtered as sentinel artifact
+		},
+		{
 			name: "deduplication",
 			in:   `up + up + up`,
 			want: []string{"up"},

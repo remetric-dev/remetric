@@ -35,4 +35,12 @@ func TestIsSentinel(t *testing.T) {
 	if isSentinel("__remetric_var") {
 		t.Error("isSentinel(non-sentinel) = true, want false")
 	}
+	// Concatenation forms: sanitiser leaves the sentinel as a substring
+	// when a template variable is glued to literal text in the source.
+	if !isSentinel("__remetric_var___total") {
+		t.Error("isSentinel(suffix-concat) = false, want true")
+	}
+	if !isSentinel("foo___remetric_var__") {
+		t.Error("isSentinel(prefix-concat) = false, want true")
+	}
 }
