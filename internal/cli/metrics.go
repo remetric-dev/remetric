@@ -120,7 +120,14 @@ recording rule references count toward "used".`,
 				return renderEmpty(cfg, cmd.OutOrStdout(), unusedMetricsCopy, minSev, 0, nil)
 			}
 
-			return renderFindings(cfg, cmd.OutOrStdout(), filtered)
+			if err := renderFindings(cfg, cmd.OutOrStdout(), filtered); err != nil {
+				return err
+			}
+			sev, enabled := cfg.FailOnThreshold()
+			if findings.ShouldFail(sev, enabled, filtered) {
+				return &exitError{code: 3, err: fmt.Errorf("findings at or above --fail-on=%s", cfg.FailOn)}
+			}
+			return nil
 		},
 	}
 	cmd.Flags().IntVar(&limit, "limit", 20, "Maximum findings to print (0 = none)")

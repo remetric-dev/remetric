@@ -133,7 +133,14 @@ instead. Use --out FILE to write to a file (or '-' for stdout).`,
 			if closeErr := closer(); closeErr != nil && renderErr == nil {
 				return closeErr
 			}
-			return renderErr
+			if renderErr != nil {
+				return renderErr
+			}
+			sev, enabled := cfg.FailOnThreshold()
+			if findings.ShouldFail(sev, enabled, rep.Findings) {
+				return &exitError{code: 3, err: fmt.Errorf("findings at or above --fail-on=%s", cfg.FailOn)}
+			}
+			return nil
 		},
 	}
 	cmd.Flags().StringVar(&format, "format", "terminal", "Output format: terminal|json|html|markdown")

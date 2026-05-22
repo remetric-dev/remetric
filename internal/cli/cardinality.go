@@ -37,6 +37,7 @@ All subcommands accept --output {terminal,json} and --min-severity.`,
 	return cmd
 }
 
+//nolint:gocyclo // RunE closure is straight-line config-gathering; no branching to flatten
 func newCardinalityTopCmd() *cobra.Command {
 	var (
 		limit       int
@@ -123,7 +124,14 @@ Severity thresholds (configurable via Phase 3):
 				return renderEmpty(cfg, cmd.OutOrStdout(), cardinalityCopy, minSev, 0, nil)
 			}
 
-			return renderFindings(cfg, cmd.OutOrStdout(), filtered)
+			if err := renderFindings(cfg, cmd.OutOrStdout(), filtered); err != nil {
+				return err
+			}
+			sev, enabled := cfg.FailOnThreshold()
+			if findings.ShouldFail(sev, enabled, filtered) {
+				return &exitError{code: 3, err: fmt.Errorf("findings at or above --fail-on=%s", cfg.FailOn)}
+			}
+			return nil
 		},
 	}
 	cmd.Flags().IntVar(&limit, "limit", 20, "Maximum findings to print (0 = none)")

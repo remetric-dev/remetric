@@ -109,7 +109,14 @@ into a single findings.Report shape — see the JSON schema in the spec.`,
 			rep := buildReport(cmd, cfg, filtered, promClient)
 			rep.Warnings = warnings
 			rep.ScannedAt = time.Now().UTC()
-			return renderReport(cfg, cmd.OutOrStdout(), rep)
+			if err := renderReport(cfg, cmd.OutOrStdout(), rep); err != nil {
+				return err
+			}
+			sev, enabled := cfg.FailOnThreshold()
+			if findings.ShouldFail(sev, enabled, rep.Findings) {
+				return &exitError{code: 3, err: fmt.Errorf("findings at or above --fail-on=%s", cfg.FailOn)}
+			}
+			return nil
 		},
 	}
 	cmd.Flags().StringVar(&minSeverity, "min-severity", "medium", "Minimum severity to print: low|medium|high|critical")

@@ -144,6 +144,44 @@ func TestScan_IncludesAlertHygieneRunner(t *testing.T) {
 	}
 }
 
+func TestScan_FailOnCriticalExits3WhenCriticalFindingPresent(t *testing.T) {
+	ts := newPromScanStub(t)
+	defer ts.Close()
+	var stdout, stderr bytes.Buffer
+	code := cli.ExecuteWith(cli.Args{
+		Version: "test",
+		Args: []string{
+			"scan",
+			"--prometheus", ts.URL,
+			"--fail-on", "critical",
+		},
+		Stdout: &stdout,
+		Stderr: &stderr,
+	})
+	if code != 3 {
+		t.Fatalf("exit code = %d, want 3 (stderr=%s)", code, stderr.String())
+	}
+}
+
+func TestScan_FailOnNoneExits0EvenWithCritical(t *testing.T) {
+	ts := newPromScanStub(t)
+	defer ts.Close()
+	var stdout, stderr bytes.Buffer
+	code := cli.ExecuteWith(cli.Args{
+		Version: "test",
+		Args: []string{
+			"scan",
+			"--prometheus", ts.URL,
+			"--fail-on", "none",
+		},
+		Stdout: &stdout,
+		Stderr: &stderr,
+	})
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0 (stderr=%s)", code, stderr.String())
+	}
+}
+
 func TestScan_SkipsUnusedWhenNoGrafana(t *testing.T) {
 	ts := newPromScanStub(t)
 	defer ts.Close()

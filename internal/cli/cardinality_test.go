@@ -179,6 +179,42 @@ func TestCardinalityTop_AllFiltered_ShowsHint(t *testing.T) {
 	}
 }
 
+func TestCardinalityTop_FailOnCriticalExits3WhenCriticalFindingPresent(t *testing.T) {
+	srv := newCardinalityStub(t)
+	var stdout, stderr bytes.Buffer
+	code := cli.ExecuteWith(cli.Args{
+		Version: "test",
+		Args: []string{
+			"cardinality", "top",
+			"--prometheus", srv.URL,
+			"--fail-on", "critical",
+		},
+		Stdout: &stdout,
+		Stderr: &stderr,
+	})
+	if code != 3 {
+		t.Fatalf("exit code = %d, want 3 (stderr=%s)", code, stderr.String())
+	}
+}
+
+func TestCardinalityTop_FailOnNoneExits0EvenWithCritical(t *testing.T) {
+	srv := newCardinalityStub(t)
+	var stdout, stderr bytes.Buffer
+	code := cli.ExecuteWith(cli.Args{
+		Version: "test",
+		Args: []string{
+			"cardinality", "top",
+			"--prometheus", srv.URL,
+			"--fail-on", "none",
+		},
+		Stdout: &stdout,
+		Stderr: &stderr,
+	})
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0 (stderr=%s)", code, stderr.String())
+	}
+}
+
 func TestCardinalityTop_InvalidOutput(t *testing.T) {
 	var out bytes.Buffer
 	code := cli.ExecuteWith(cli.Args{
