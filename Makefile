@@ -9,7 +9,7 @@ LOCAL_PREFIX     := github.com/remetric-dev/remetric
 VERSION          ?= $(shell git describe --tags --dirty --always 2>/dev/null || echo dev)
 LDFLAGS          := -s -w -X main.version=$(VERSION)
 
-.PHONY: help build test test-race fmt vet lint vuln clean e2e-up e2e-down e2e e2e-vm-up e2e-vm-down e2e-vm e2e-alerts release-check release-snapshot docker-build install-check
+.PHONY: help build test test-race cover fmt vet lint vuln clean e2e-up e2e-down e2e e2e-vm-up e2e-vm-down e2e-vm e2e-alerts release-check release-snapshot docker-build install-check
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*## / {printf "  %-14s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -22,6 +22,14 @@ test: ## Run unit tests
 
 test-race: ## Run unit tests with -race
 	$(GO) test -race ./...
+
+cover: ## Run tests with coverage; write coverage.out + per-package summary
+	$(GO) test -coverprofile=coverage.out -covermode=atomic ./...
+	@echo
+	@echo "==> Per-package coverage"
+	@$(GO) tool cover -func=coverage.out | tail -1
+	@echo "==> Per-package detail (above 0%):"
+	@$(GO) tool cover -func=coverage.out | awk '$$3 != "0.0%" && $$1 != "total:"' | sort -k3 -h
 
 clean: ## Remove build outputs
 	rm -rf bin coverage.out
