@@ -15,6 +15,7 @@ import (
 	"github.com/remetric-dev/remetric/internal/analyzers"
 	"github.com/remetric-dev/remetric/internal/analyzers/alerthygiene"
 	"github.com/remetric-dev/remetric/internal/analyzers/cardinality"
+	"github.com/remetric-dev/remetric/internal/analyzers/dashboardhygiene"
 	"github.com/remetric-dev/remetric/internal/analyzers/labelpattern"
 	"github.com/remetric-dev/remetric/internal/analyzers/unusedmetrics"
 	"github.com/remetric-dev/remetric/internal/config"
@@ -85,6 +86,7 @@ into a single findings.Report shape - see the JSON schema in the spec.`,
 				labelpattern.New(),
 				unusedmetrics.New(),
 				alerthygiene.New(alerthygiene.Config{}),
+				dashboardhygiene.New(),
 			}
 			prog := progress.New(cmd.ErrOrStderr(), cfg.NoProgress)
 			for _, a := range runners {

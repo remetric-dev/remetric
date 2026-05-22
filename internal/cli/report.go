@@ -17,6 +17,7 @@ import (
 	"github.com/remetric-dev/remetric/internal/analyzers"
 	"github.com/remetric-dev/remetric/internal/analyzers/alerthygiene"
 	"github.com/remetric-dev/remetric/internal/analyzers/cardinality"
+	"github.com/remetric-dev/remetric/internal/analyzers/dashboardhygiene"
 	"github.com/remetric-dev/remetric/internal/analyzers/labelpattern"
 	"github.com/remetric-dev/remetric/internal/analyzers/unusedmetrics"
 	"github.com/remetric-dev/remetric/internal/findings"
@@ -96,6 +97,7 @@ instead. Use --out FILE to write to a file (or '-' for stdout).`,
 				labelpattern.New(),
 				unusedmetrics.New(),
 				alerthygiene.New(alerthygiene.Config{Lookback: lookback, Step: step}),
+				dashboardhygiene.New(),
 			}
 			var (
 				all      []findings.Finding
