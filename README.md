@@ -179,21 +179,6 @@ remetric alerts always-firing \
 Tune the sampling window with `--lookback` (default `168h`) and `--step`
 (default `1h`). For VictoriaMetrics, point `--vmalert` at the vmalert API.
 
-**Large alert estates:** the analyzer issues one `query_range` per alerting
-rule and runs the loop sequentially. With defaults each call asks
-Prometheus for `168` data points (168h / 1h step); 500 alerts → 500
-sequential calls. On the largest targets the per-call latency and the cost
-of computing 168 points dominates wall-clock. Narrow the window to keep
-each call cheap:
-
-```bash
-remetric alerts unused --prometheus http://localhost:9090 \
-  --lookback 24h --step 5m
-```
-
-A future release may parallelize the per-rule loop under
-`--prom-max-in-flight`.
-
 ### Unified report
 
 `remetric report` runs every analyzer and emits a single document in
