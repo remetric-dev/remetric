@@ -9,7 +9,10 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"sort"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
 
 	"github.com/remetric-dev/remetric/internal/analyzers"
 	"github.com/remetric-dev/remetric/internal/findings"
@@ -200,5 +203,72 @@ func TestAnalyzer_ExistingMetricIsClean(t *testing.T) {
 	}
 	if len(res.Findings) != 0 {
 		t.Errorf("Findings len = %d, want 0; got %+v", len(res.Findings), res.Findings)
+	}
+}
+
+func TestAnalyzer_GroupsByDashboardAndMetric(t *testing.T) {
+	promURL, grafURL := newStubs(t, stubsConfig{
+		IngestedNames: []string{"up"},
+		Dashboards: []dashboardStub{{
+			UID:   "d1",
+			Title: "Disk",
+			Body: `{"dashboard":{"uid":"d1","title":"Disk","panels":[
+				{"type":"graph","title":"Disk I/O 5m","targets":[{"expr":"missing_xyz","datasource":{"type":"prometheus"}}]},
+				{"type":"graph","title":"Disk I/O 1h","targets":[{"expr":"missing_xyz","datasource":{"type":"prometheus"}}]},
+				{"type":"graph","title":"Disk I/O 24h","targets":[{"expr":"sum(missing_xyz)","datasource":{"type":"prometheus"}}]}
+			]}}`,
+		}},
+	})
+	pc, gc := mustClients(t, promURL, grafURL)
+
+	res, err := New().Analyze(context.Background(), analyzers.Deps{
+		Prom: pc, Graf: gc, Logger: slog.Default(), Limits: analyzers.DefaultLimits(),
+	})
+	if err != nil {
+		t.Fatalf("Analyze: %v", err)
+	}
+	if len(res.Findings) != 1 {
+		t.Fatalf("Findings len = %d, want 1; got %+v", len(res.Findings), res.Findings)
+	}
+	f := res.Findings[0]
+	if got := len(f.Evidence.SampleValues); got != 3 {
+		t.Errorf("Evidence.SampleValues len = %d, want 3", got)
+	}
+	wantTitles := []string{"Disk I/O 5m", "Disk I/O 1h", "Disk I/O 24h"}
+	if diff := cmp.Diff(wantTitles, f.Evidence.SampleValues); diff != "" {
+		t.Errorf("SampleValues mismatch (-want +got):\n%s", diff)
+	}
+}
+
+func TestAnalyzer_DistinctMissingMetricsEmitSeparateFindings(t *testing.T) {
+	promURL, grafURL := newStubs(t, stubsConfig{
+		IngestedNames: []string{"up"},
+		Dashboards: []dashboardStub{{
+			UID:   "d1",
+			Title: "Mixed",
+			Body: `{"dashboard":{"uid":"d1","title":"Mixed","panels":[
+				{"type":"graph","title":"P1","targets":[{"expr":"missing_a","datasource":{"type":"prometheus"}}]},
+				{"type":"graph","title":"P2","targets":[{"expr":"missing_b","datasource":{"type":"prometheus"}}]}
+			]}}`,
+		}},
+	})
+	pc, gc := mustClients(t, promURL, grafURL)
+
+	res, err := New().Analyze(context.Background(), analyzers.Deps{
+		Prom: pc, Graf: gc, Logger: slog.Default(), Limits: analyzers.DefaultLimits(),
+	})
+	if err != nil {
+		t.Fatalf("Analyze: %v", err)
+	}
+	if len(res.Findings) != 2 {
+		t.Fatalf("Findings len = %d, want 2; got %+v", len(res.Findings), res.Findings)
+	}
+	metrics := make([]string, 0, len(res.Findings))
+	for _, f := range res.Findings {
+		metrics = append(metrics, f.Metric)
+	}
+	sort.Strings(metrics)
+	if diff := cmp.Diff([]string{"missing_a", "missing_b"}, metrics); diff != "" {
+		t.Errorf("missing metrics mismatch (-want +got):\n%s", diff)
 	}
 }
