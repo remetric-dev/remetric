@@ -20,7 +20,6 @@ import (
 // metric while leaving the others intact.
 func TestScan_IgnoreMetricDropsFindingAndSetsCount(t *testing.T) {
 	ts := newPromScanStub(t)
-	defer ts.Close()
 
 	var out bytes.Buffer
 	code := cli.ExecuteWith(cli.Args{
@@ -65,7 +64,7 @@ func TestScan_IgnoreMetricDropsFindingAndSetsCount(t *testing.T) {
 // With high_card_metric ignored, exit must be 0.
 func TestScan_IgnoreCriticalAvoidsFailOn(t *testing.T) {
 	ts := newPromScanStub(t)
-	defer ts.Close()
+
 	var stdout, stderr bytes.Buffer
 	code := cli.ExecuteWith(cli.Args{
 		Version: "test",
