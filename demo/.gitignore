@@ -1,0 +1,4 @@
+# Output from `docker compose up` - regenerated on every run.
+output/*.html
+output/*.json
+output/*.md

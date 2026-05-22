@@ -1,0 +1,87 @@
+# demo/docker-compose.yml
+#
+# One-command demo of remetric against a synthetic Prometheus + Grafana stack.
+# Run with `docker compose up` from this directory. After ~30s the HTML
+# report appears at `demo/output/report.html`. Open it in any browser.
+#
+# Services:
+#   prometheus       - Prometheus 2.51.x scraping cardinality-bomb + node-exporter
+#   node-exporter    - host metrics (helps surface unused-metric findings)
+#   cardinality-bomb - emits app_requests_total with high-cardinality labels
+#   grafana          - Grafana 11 with one provisioned dashboard
+#   remetric-wait    - 30s pause so Prometheus accumulates a few scrape windows
+#   remetric         - the doctor; runs once, writes report.html to ./output/
+#
+# Reused config from ../e2e/ to avoid duplication.
+
+services:
+  prometheus:
+    image: prom/prometheus:v2.51.2
+    container_name: remetric-demo-prom
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=2h
+      - --web.listen-address=:9090
+    volumes:
+      - ../e2e/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ../e2e/alerting_rules.yml:/etc/prometheus/alerting_rules.yml:ro
+    ports:
+      # Host port 9091 so demo can run in parallel with `make e2e-up` (9090).
+      - "9091:9090"
+
+  node-exporter:
+    image: prom/node-exporter:v1.8.0
+    container_name: remetric-demo-node
+    ports:
+      - "9101:9100"
+
+  cardinality-bomb:
+    build:
+      context: ../e2e/cardinality-bomb
+    container_name: remetric-demo-bomb
+    ports:
+      - "8081:8080"
+
+  grafana:
+    image: grafana/grafana:11.0.0
+    container_name: remetric-demo-grafana
+    ports:
+      - "3001:3000"
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: "Admin"
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+      GF_LOG_LEVEL: "warn"
+    volumes:
+      - ../e2e/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ../e2e/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+
+  remetric-wait:
+    image: alpine:3
+    container_name: remetric-demo-wait
+    command:
+      - sh
+      - -c
+      - "echo 'waiting 30s for Prometheus to scrape a few windows...'; sleep 30"
+    depends_on:
+      - prometheus
+      - cardinality-bomb
+      - grafana
+
+  remetric:
+    image: ghcr.io/remetric-dev/remetric:latest
+    container_name: remetric-demo-remetric
+    command:
+      - report
+      - --prometheus=http://prometheus:9090
+      - --grafana=http://grafana:3000
+      - --format=html
+      - --out=/out/report.html
+    volumes:
+      - ./output:/out
+    depends_on:
+      remetric-wait:
+        condition: service_completed_successfully
+    restart: "no"
