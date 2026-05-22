@@ -166,6 +166,8 @@ func (c *Client) do(ctx context.Context, method, pathAndQuery string, body io.Re
 			e.sentinel = ErrAuth
 		case http.StatusNotFound:
 			e.sentinel = ErrNotFound
+		case http.StatusNotImplemented:
+			e.sentinel = ErrNotSupported
 		}
 		return nil, e
 	}
