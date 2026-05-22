@@ -255,6 +255,11 @@ Global flags (subset; see `--help` for the full list):
 - `--no-color` - Disable colored output (`NO_COLOR` env also respected).
 - `--verbose` - Debug-level slog logging on stderr.
 
+## Documentation
+
+Full reference at [remetric.dev](https://remetric.dev/) - one page per finding
+class with detection rules, fix snippets, and false-positive notes.
+
 ## What's still missing in v0.1
 
 - No dashboard sprawl analyzer.
