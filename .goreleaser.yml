@@ -95,7 +95,7 @@ homebrew_casks:
     directory: Casks
     homepage: "https://remetric.dev"
     description: "Re-metric your stack - find waste in Prometheus, Grafana & Loki"
-    binary: "remetric"
+    binaries: ["remetric"]
     commit_author:
       name: "remetric-dev-bot"
       email: "noreply@remetric.dev"

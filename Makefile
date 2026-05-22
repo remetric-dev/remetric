@@ -3,7 +3,7 @@ GOLANGCI_VERSION := v2.12.1
 GOLANGCI_IMAGE   := golangci/golangci-lint:$(GOLANGCI_VERSION)
 GOFUMPT_VERSION  := v0.7.0
 GOVULN_VERSION   := v1.3.0
-GORELEASER_VERSION := v2.10.0
+GORELEASER_VERSION := v2.15.4
 LOCAL_PREFIX     := github.com/remetric-dev/remetric
 
 VERSION          ?= $(shell git describe --tags --dirty --always 2>/dev/null || echo dev)
