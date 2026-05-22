@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/remetric-dev/remetric/internal/config"
+	"github.com/remetric-dev/remetric/internal/findings"
 )
 
 func newFlagSet() *pflag.FlagSet {
@@ -327,5 +328,61 @@ func TestConfig_Validate_AcceptsValidConfig(t *testing.T) {
 		if err := cfg.Validate(); err != nil {
 			t.Errorf("case %d: Validate() = %v, want nil", i, err)
 		}
+	}
+}
+
+func TestConfig_FailOnBinding_DefaultIsNone(t *testing.T) {
+	fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
+	config.BindFlags(fs)
+	if err := fs.Parse(nil); err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	cfg, err := config.Load(fs, "")
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("Validate: %v", err)
+	}
+	_, enabled := cfg.FailOnThreshold()
+	if enabled {
+		t.Errorf("FailOnThreshold enabled by default, want disabled")
+	}
+}
+
+func TestConfig_FailOn_ParsesValidValue(t *testing.T) {
+	fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
+	config.BindFlags(fs)
+	if err := fs.Parse([]string{"--fail-on", "critical"}); err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	cfg, err := config.Load(fs, "")
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("Validate: %v", err)
+	}
+	sev, enabled := cfg.FailOnThreshold()
+	if !enabled {
+		t.Errorf("enabled = false, want true for --fail-on=critical")
+	}
+	if sev != findings.SeverityCritical {
+		t.Errorf("sev = %v, want SeverityCritical", sev)
+	}
+}
+
+func TestConfig_FailOn_RejectsInvalidValue(t *testing.T) {
+	fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
+	config.BindFlags(fs)
+	if err := fs.Parse([]string{"--fail-on", "nope"}); err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	cfg, err := config.Load(fs, "")
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if err := cfg.Validate(); err == nil {
+		t.Errorf("Validate accepted --fail-on=nope, want error")
 	}
 }
