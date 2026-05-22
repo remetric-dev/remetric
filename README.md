@@ -295,6 +295,62 @@ REMETRIC_IGNORE_ALERT='HighMemoryUsage' \
 The dropped count surfaces in every output format. Filter runs BEFORE
 `--fail-on`, so an ignored critical finding does not raise exit code 3.
 
+## Supported versions
+
+| Component | Minimum | Tested | Notes |
+|-----------|---------|--------|-------|
+| Prometheus | 2.30 | 2.51.x, 2.53.x | TSDB stats API (`/api/v1/status/tsdb`) is the floor. Prometheus 3.x untested - file an issue if you hit something. |
+| VictoriaMetrics | v1.93 | v1.108.x | Single-binary + cluster (via `vmauth`). `vmalert` required for alert + recording-rule coverage; pass `--vmalert`. |
+| Grafana | 9.0 | 10.4.x, 11.x | Service-account API keys preferred (`--grafana-token`); basic auth supported. |
+| Go (build) | 1.26 | 1.26.3 | Only needed if building from source; releases ship static binaries. |
+| OS / arch | - | linux+amd64, linux+arm64, darwin+amd64, darwin+arm64, windows+amd64 | Static binary, no glibc dependency. |
+| Docker | - | 24+ | For demo / e2e stacks via `docker compose`. |
+
+Multi-tenant Cortex / Mimir / Thanos: URL-prefix tenant routing through
+`vmauth` works; `X-Scope-OrgID` header style is not yet supported.
+
+## FAQ
+
+**Does remetric modify my Prometheus or Grafana?**
+No. Remetric is strictly read-only. It calls `GET` against the Prometheus HTTP API and Grafana's `/api/search` + `/api/dashboards`. Nothing is created, updated, or deleted.
+
+**What does each severity mean?**
+- `critical` - clear, large-impact problem (broken always-firing alert; metric with millions of series concentrated in one unbounded label).
+- `high` - significant cardinality offender or unused metric responsible for >5% of total series.
+- `medium` - notable but bounded (suspicious label pattern, never-fired alert).
+- `low` - informational; below the default `--min-severity=medium` cutoff, surfaced via `--min-severity=low`.
+
+Severity is computed per-analyzer from observed series counts, uniqueness ratios, and lookback windows. See `internal/scoring/` for the exact rules.
+
+**How accurate is the series-reduction estimate?**
+It's an upper bound (`estimation_method: "labeldrop_upper_bound"`). The number assumes the offending label is fully dropped; in practice, partial relabel rules will reduce less. Treat it as "this much waste *could* go away if you fully suppress this label".
+
+**Does `--ignore` interact with `--fail-on`?**
+Ignored findings are dropped BEFORE the `--fail-on` gate. An ignored critical finding does not raise exit code 3. This is intentional: ignored == "known and accepted".
+
+**Why do I need `--vmalert` for VictoriaMetrics?**
+VictoriaMetrics serves `/api/v1/rules` from `vmalert`, not from `vmselect`. Without `--vmalert`, the alert-hygiene analyzer and unused-metric analyzer can't see rule definitions and will warn `rules unavailable`. Point `--vmalert` at the vmalert HTTP listener (default `:8880`).
+
+**`scan` vs `report` vs `cardinality top` - which one do I run?**
+- `cardinality top` (and other focused commands) - drill into one analyzer's output. Use for investigation.
+- `scan` - run every analyzer, emit a JSON `findings.Report`. Use in CI / scripts (with `--fail-on`).
+- `report` - same coverage as `scan` but renders to `terminal` (default), `json`, `html`, or `markdown` via `--format`. Use to share a snapshot.
+
+**How do I run remetric in CI?**
+Pair any command with `--fail-on=critical` (or stricter) so a regression breaks the build:
+
+```bash
+remetric scan --prometheus https://prom.internal --fail-on=critical --output json > scan.json
+```
+
+Exit codes: `0` clean, `1` runtime error, `2` flag/usage error, `3` findings at or above threshold. See `## CI integration`.
+
+**Can I silence known-noisy metrics or alerts?**
+Yes, with `--ignore-metric`, `--ignore-label`, `--ignore-alert` (anchored regex, repeatable). Patterns can also come from `REMETRIC_IGNORE_*` env vars or `.remetric.yaml`. See `## Ignoring findings`.
+
+**What about Loki / multi-tenant Cortex / Mimir?**
+Post-v0.1 roadmap. Today, single-tenant Prometheus + VictoriaMetrics. Tenant routing via `vmauth` URL prefixes works; `X-Scope-OrgID` is not yet wired.
+
 ## Building from source
 
 ```bash
