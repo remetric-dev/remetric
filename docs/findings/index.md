@@ -10,5 +10,5 @@ that triggered it. Each class has its own reference page below.
 | [Unused metric](unused-metric.md) | Low / Medium | unused_metrics |
 | [Label pattern overly granular](label-pattern-overly-granular.md) | Low / Medium | label_patterns |
 | [Never-firing alert](never-firing-alert.md) | Medium | alert_hygiene |
-| [Always-firing alert](always-firing-alert.md) | High | alert_hygiene |
+| [Always-firing alert](always-firing-alert.md) | Critical | alert_hygiene |
 | [Dashboard sprawl](dashboard-sprawl.md) | n/a (coming soon) | dashboard_sprawl |
