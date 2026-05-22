@@ -214,3 +214,192 @@ func TestNewWithPatterns_InvalidRegex(t *testing.T) {
 		t.Errorf("expected error for invalid regex, got nil")
 	}
 }
+
+func TestAnalyzer_HeuristicDowngradesBoundedValues(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case strings.HasPrefix(r.URL.Path, "/api/v1/status/tsdb"):
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"status": "success",
+				"data": map[string]any{
+					"headStats":               map[string]any{"numSeries": 1_000_000},
+					"seriesCountByMetricName": []map[string]any{{"name": "m", "value": 100}},
+					"labelValueCountByLabelName": []map[string]any{
+						{"name": "user_id", "value": 5_000}, // would be High
+					},
+				},
+			})
+		case r.URL.Path == "/api/v1/label/__name__/values":
+			_ = json.NewEncoder(w).Encode(map[string]any{"status": "success", "data": []string{"m"}})
+		case r.URL.Path == "/api/v1/label/user_id/values":
+			// Bounded-looking samples: short digits.
+			_ = json.NewEncoder(w).Encode(map[string]any{"status": "success", "data": []string{"1", "2", "3", "4", "5"}})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer ts.Close()
+
+	c, _ := prometheus.New(ts.URL)
+	res, err := New().Analyze(context.Background(), analyzers.Deps{
+		Prom: c, Logger: slog.Default(), Limits: analyzers.DefaultLimits(),
+	})
+	if err != nil {
+		t.Fatalf("Analyze: %v", err)
+	}
+	if len(res.Findings) != 1 {
+		t.Fatalf("Findings = %d, want 1", len(res.Findings))
+	}
+	if res.Findings[0].Severity != findings.SeverityMedium {
+		t.Errorf("Severity = %v, want Medium (downgraded from High)", res.Findings[0].Severity)
+	}
+	if !strings.Contains(res.Findings[0].Evidence.Description, "look bounded") {
+		t.Errorf("Description = %q, want it to mention 'look bounded'", res.Findings[0].Evidence.Description)
+	}
+}
+
+func TestAnalyzer_HeuristicKeepsUnboundedSeverity(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case strings.HasPrefix(r.URL.Path, "/api/v1/status/tsdb"):
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"status": "success",
+				"data": map[string]any{
+					"headStats":               map[string]any{"numSeries": 1_000_000},
+					"seriesCountByMetricName": []map[string]any{{"name": "m", "value": 100}},
+					"labelValueCountByLabelName": []map[string]any{
+						{"name": "user_id", "value": 5_000},
+					},
+				},
+			})
+		case r.URL.Path == "/api/v1/label/__name__/values":
+			_ = json.NewEncoder(w).Encode(map[string]any{"status": "success", "data": []string{"m"}})
+		case r.URL.Path == "/api/v1/label/user_id/values":
+			// UUID-like samples → unbounded.
+			_ = json.NewEncoder(w).Encode(map[string]any{"status": "success", "data": []string{"u-abc-1", "u-xyz-99", "u-qqq-42"}})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer ts.Close()
+	c, _ := prometheus.New(ts.URL)
+	res, err := New().Analyze(context.Background(), analyzers.Deps{
+		Prom: c, Logger: slog.Default(), Limits: analyzers.DefaultLimits(),
+	})
+	if err != nil {
+		t.Fatalf("Analyze: %v", err)
+	}
+	if len(res.Findings) != 1 {
+		t.Fatalf("Findings = %d, want 1", len(res.Findings))
+	}
+	if res.Findings[0].Severity != findings.SeverityHigh {
+		t.Errorf("Severity = %v, want High (NOT downgraded)", res.Findings[0].Severity)
+	}
+	if strings.Contains(res.Findings[0].Evidence.Description, "look bounded") {
+		t.Errorf("Description = %q, must NOT mention 'look bounded'", res.Findings[0].Evidence.Description)
+	}
+}
+
+func TestAnalyzer_PerLabelErrorAggregation_LabelValues(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case strings.HasPrefix(r.URL.Path, "/api/v1/status/tsdb"):
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"status": "success",
+				"data": map[string]any{
+					"headStats":               map[string]any{"numSeries": 1_000_000},
+					"seriesCountByMetricName": []map[string]any{{"name": "m", "value": 100}},
+					"labelValueCountByLabelName": []map[string]any{
+						{"name": "good_id", "value": 500},
+						{"name": "broken_id", "value": 500},
+					},
+				},
+			})
+		case r.URL.Path == "/api/v1/label/__name__/values":
+			_ = json.NewEncoder(w).Encode(map[string]any{"status": "success", "data": []string{"m"}})
+		case r.URL.Path == "/api/v1/label/good_id/values":
+			_ = json.NewEncoder(w).Encode(map[string]any{"status": "success", "data": []string{"abc-1", "xyz-2"}})
+		case r.URL.Path == "/api/v1/label/broken_id/values":
+			w.WriteHeader(http.StatusInternalServerError)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer ts.Close()
+
+	c, _ := prometheus.New(ts.URL)
+	res, err := New().Analyze(context.Background(), analyzers.Deps{
+		Prom: c, Logger: slog.Default(), Limits: analyzers.DefaultLimits(),
+	})
+	if err != nil {
+		t.Fatalf("Analyze returned error, want graceful: %v", err)
+	}
+	if len(res.Findings) != 1 || res.Findings[0].Evidence.Label != "good_id" {
+		t.Errorf("Findings = %+v, want exactly [good_id]", res.Findings)
+	}
+	if len(res.Warnings) != 1 {
+		t.Fatalf("Warnings = %v, want exactly 1", res.Warnings)
+	}
+	if !strings.Contains(res.Warnings[0], `"broken_id"`) {
+		t.Errorf("Warnings[0] = %q, want it to mention broken_id", res.Warnings[0])
+	}
+	if !strings.Contains(res.Warnings[0], "labelpattern:") {
+		t.Errorf("Warnings[0] = %q, want labelpattern: prefix", res.Warnings[0])
+	}
+}
+
+func TestAnalyzer_PerLabelErrorAggregation_MetricNamesWithLabel(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case strings.HasPrefix(r.URL.Path, "/api/v1/status/tsdb"):
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"status": "success",
+				"data": map[string]any{
+					"headStats":               map[string]any{"numSeries": 1_000_000},
+					"seriesCountByMetricName": []map[string]any{{"name": "m", "value": 100}},
+					"labelValueCountByLabelName": []map[string]any{
+						{"name": "good_id", "value": 500},
+						{"name": "broken_id", "value": 500},
+					},
+				},
+			})
+		case r.URL.Path == "/api/v1/label/__name__/values":
+			// First label query (for good_id) succeeds; second (broken_id) returns 500.
+			match := r.URL.Query().Get("match[]")
+			if match == `{good_id!=""}` {
+				_ = json.NewEncoder(w).Encode(map[string]any{"status": "success", "data": []string{"m"}})
+				return
+			}
+			if match == `{broken_id!=""}` {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			http.Error(w, "unexpected match[]: "+match, 400)
+		case r.URL.Path == "/api/v1/label/good_id/values":
+			_ = json.NewEncoder(w).Encode(map[string]any{"status": "success", "data": []string{"a-1", "b-2"}})
+		case r.URL.Path == "/api/v1/label/broken_id/values":
+			_ = json.NewEncoder(w).Encode(map[string]any{"status": "success", "data": []string{"c-1", "d-2"}})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer ts.Close()
+
+	c, _ := prometheus.New(ts.URL)
+	res, err := New().Analyze(context.Background(), analyzers.Deps{
+		Prom: c, Logger: slog.Default(), Limits: analyzers.DefaultLimits(),
+	})
+	if err != nil {
+		t.Fatalf("Analyze returned error, want graceful: %v", err)
+	}
+	if len(res.Findings) != 1 || res.Findings[0].Evidence.Label != "good_id" {
+		t.Errorf("Findings = %+v, want exactly [good_id]", res.Findings)
+	}
+	if len(res.Warnings) != 1 || !strings.Contains(res.Warnings[0], `"broken_id"`) {
+		t.Errorf("Warnings = %v, want 1 entry mentioning broken_id", res.Warnings)
+	}
+}

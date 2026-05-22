@@ -50,6 +50,7 @@ func (a *Analyzer) Analyze(ctx context.Context, d analyzers.Deps) (analyzers.Res
 		seriesByMetric[m.Name] = m.Value
 	}
 
+	var warnings []string
 	var out []findings.Finding
 	for _, lbl := range stats.LabelValueCountByLabelName {
 		if IsBounded(lbl.Name) {
@@ -59,18 +60,16 @@ func (a *Analyzer) Analyze(ctx context.Context, d analyzers.Deps) (analyzers.Res
 			continue
 		}
 
-		// TODO(phase3): heuristic verification that sampled values look
-		// unbounded (variance in length, no obvious enum).
-
 		samples, err := d.Prom.LabelValues(ctx, lbl.Name)
 		if err != nil {
-			return analyzers.Result{}, fmt.Errorf("labelpattern: sample %q: %w", lbl.Name, err)
+			warnings = append(warnings, fmt.Sprintf("labelpattern: sample %q: %v", lbl.Name, err))
+			continue
 		}
 
-		// TODO(phase3): aggregate per-label errors instead of fail-fast.
 		metrics, err := d.Prom.MetricNamesWithLabel(ctx, lbl.Name)
 		if err != nil {
-			return analyzers.Result{}, fmt.Errorf("labelpattern: metrics for %q: %w", lbl.Name, err)
+			warnings = append(warnings, fmt.Sprintf("labelpattern: metrics for %q: %v", lbl.Name, err))
+			continue
 		}
 
 		var seriesAffected int64
@@ -80,6 +79,11 @@ func (a *Analyzer) Analyze(ctx context.Context, d analyzers.Deps) (analyzers.Res
 
 		uniq := int(lbl.Value)
 		sev := scoring.LabelPatternSeverity(uniq)
+		descSuffix := ""
+		if !looksUnbounded(samples) {
+			sev = downgradeOnce(sev)
+			descSuffix = " (sampled values look bounded — possible false positive)"
+		}
 		impact := EstimateImpact(seriesAffected, uniq)
 
 		fixCfg, err := RenderFix(lbl.Name, metrics)
@@ -97,7 +101,7 @@ func (a *Analyzer) Analyze(ctx context.Context, d analyzers.Deps) (analyzers.Res
 				UniqueValues: uniq,
 				SampleValues: sampleValues(samples, d.Limits.SampleSize),
 				SeriesCount:  seriesAffected,
-				Description:  fmt.Sprintf("%s has %d unique values across %d metrics", lbl.Name, uniq, len(metrics)),
+				Description:  fmt.Sprintf("%s has %d unique values across %d metrics%s", lbl.Name, uniq, len(metrics), descSuffix),
 			},
 			Fix: findings.Fix{
 				Type:   "drop_label",
@@ -114,7 +118,7 @@ func (a *Analyzer) Analyze(ctx context.Context, d analyzers.Deps) (analyzers.Res
 		return out[i].Evidence.UniqueValues > out[j].Evidence.UniqueValues
 	})
 
-	return analyzers.Result{Findings: out}, nil
+	return analyzers.Result{Findings: out, Warnings: warnings}, nil
 }
 
 func sampleValues(values []string, n int) []string {

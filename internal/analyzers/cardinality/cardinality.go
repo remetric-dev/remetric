@@ -9,6 +9,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"sync"
 
 	"github.com/remetric-dev/remetric/internal/analyzers"
 	"github.com/remetric-dev/remetric/internal/findings"
@@ -34,18 +35,16 @@ func (a *Analyzer) Analyze(ctx context.Context, d analyzers.Deps) (analyzers.Res
 	head := stats.HeadStats.NumSeries
 
 	var out []findings.Finding
+	var warnings []string
 	for _, m := range stats.SeriesCountByMetricName {
 		labels, err := d.Prom.LabelNamesForMetric(ctx, m.Name)
 		if err != nil {
-			// TODO(phase3): collect per-metric errors and continue rather than fail-fast.
-			return analyzers.Result{}, fmt.Errorf("cardinality: labels for %q: %w", m.Name, err)
+			warnings = append(warnings, fmt.Sprintf("cardinality: labels for %q: %v", m.Name, err))
+			continue
 		}
 
-		// TODO(phase3): parallelise per-label LabelValues calls bounded by the client semaphore.
-		topLabel, topValues, err := worstLabel(ctx, d, m.Name, labels)
-		if err != nil {
-			return analyzers.Result{}, err
-		}
+		topLabel, topValues, labelWarnings := worstLabel(ctx, d, m.Name, labels)
+		warnings = append(warnings, labelWarnings...)
 		if topLabel == "" {
 			continue
 		}
@@ -99,24 +98,61 @@ func (a *Analyzer) Analyze(ctx context.Context, d analyzers.Deps) (analyzers.Res
 		return out[i].Evidence.SeriesCount > out[j].Evidence.SeriesCount
 	})
 
-	return analyzers.Result{Findings: out}, nil
+	return analyzers.Result{Findings: out, Warnings: warnings}, nil
 }
 
-func worstLabel(ctx context.Context, d analyzers.Deps, metric string, labels []string) (string, []string, error) {
-	var bestLabel string
-	var bestValues []string
-	for _, lbl := range labels {
-		matcher := fmt.Sprintf(`{__name__="%s"}`, metric)
-		vals, err := d.Prom.LabelValues(ctx, lbl, matcher)
-		if err != nil {
-			return "", nil, fmt.Errorf("cardinality: values for %q[%q]: %w", metric, lbl, err)
-		}
-		if len(vals) > len(bestValues) {
-			bestLabel = lbl
-			bestValues = vals
-		}
+// worstLabel returns the label with the most unique values for metric,
+// querying every label in parallel. The prometheus.Client.maxInFlight
+// semaphore bounds actual HTTP concurrency. Per-label errors are
+// collected as warning strings; if every label fails, returns ("", nil,
+// warnings) and the caller skips the metric.
+//
+// Ties on cardinality break by lexicographic label name (smallest
+// wins) to keep output deterministic across runs.
+func worstLabel(ctx context.Context, d analyzers.Deps, metric string, labels []string) (topLabel string, topValues []string, warnings []string) {
+	type result struct {
+		label string
+		vals  []string
+		err   error
 	}
-	return bestLabel, bestValues, nil
+	ch := make(chan result, len(labels))
+	var wg sync.WaitGroup
+	for _, lbl := range labels {
+		wg.Add(1)
+		go func(lbl string) {
+			defer wg.Done()
+			matcher := fmt.Sprintf(`{__name__="%s"}`, metric)
+			vals, err := d.Prom.LabelValues(ctx, lbl, matcher)
+			ch <- result{label: lbl, vals: vals, err: err}
+		}(lbl)
+	}
+	wg.Wait()
+	close(ch)
+
+	type success struct {
+		label string
+		vals  []string
+	}
+	var successes []success
+	for r := range ch {
+		if r.err != nil {
+			warnings = append(warnings, fmt.Sprintf("cardinality: values for %q[%q]: %v", metric, r.label, r.err))
+			continue
+		}
+		successes = append(successes, success{label: r.label, vals: r.vals})
+	}
+	sort.Slice(successes, func(i, j int) bool {
+		if len(successes[i].vals) != len(successes[j].vals) {
+			return len(successes[i].vals) > len(successes[j].vals)
+		}
+		return successes[i].label < successes[j].label
+	})
+	sort.Strings(warnings)
+	if len(successes) > 0 {
+		topLabel = successes[0].label
+		topValues = successes[0].vals
+	}
+	return topLabel, topValues, warnings
 }
 
 func sample(values []string, n int) []string {
