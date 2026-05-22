@@ -12,7 +12,7 @@
 Output demo/remetric.gif
 
 Set Theme "Dracula"
-Set FontSize 13
+Set FontSize 17
 Set Width 1280
 Set Height 760
 Set Padding 20
