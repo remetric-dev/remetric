@@ -79,6 +79,9 @@ func writeFixBlock(r *Renderer, f findings.Finding) error {
 			w.printf("    %s\n", line)
 		}
 	}
+	if f.DocURL != "" {
+		w.printf("Reference: %s\n", f.DocURL)
+	}
 	return w.err
 }
 

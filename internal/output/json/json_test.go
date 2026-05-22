@@ -160,6 +160,41 @@ func TestRenderFindings_JSON_EnvelopeWithIgnoredCount(t *testing.T) {
 	}
 }
 
+func TestRenderFindings_JSON_SerialisesDocURL(t *testing.T) {
+	fs := []findings.Finding{{
+		ID:       "x",
+		Severity: findings.SeverityHigh,
+		Category: findings.CategoryCardinality,
+		Class:    findings.ClassHotLabel,
+		DocURL:   "https://remetric.dev/findings/hot-label",
+		Title:    "t",
+	}}
+	var buf bytes.Buffer
+	if err := New(&buf).RenderFindings(fs); err != nil {
+		t.Fatalf("RenderFindings: %v", err)
+	}
+	want := `"documentation_url": "https://remetric.dev/findings/hot-label"`
+	if !strings.Contains(buf.String(), want) {
+		t.Errorf("expected %q in JSON output, got:\n%s", want, buf.String())
+	}
+}
+
+func TestRenderFindings_JSON_OmitsEmptyDocURL(t *testing.T) {
+	fs := []findings.Finding{{
+		ID:       "x",
+		Severity: findings.SeverityHigh,
+		Category: findings.CategoryCardinality,
+		Title:    "t",
+	}}
+	var buf bytes.Buffer
+	if err := New(&buf).RenderFindings(fs); err != nil {
+		t.Fatalf("RenderFindings: %v", err)
+	}
+	if strings.Contains(buf.String(), `"documentation_url"`) {
+		t.Errorf("expected no documentation_url field when DocURL empty, got:\n%s", buf.String())
+	}
+}
+
 func checkGolden(t *testing.T, name string, got []byte) {
 	t.Helper()
 	path := goldenPath(name)

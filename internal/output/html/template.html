@@ -51,7 +51,8 @@
   <details class="finding sev-{{.Severity}}" data-category="{{.Category}}">
     <summary>
       <span class="badge sev-{{.Severity}}">{{.Severity}}</span>
-      <span class="title">{{.Title}}</span>
+      <span class="title">{{.Title}}</span>{{if .DocURL}}
+      <a href="{{.DocURL}}" class="finding-doc" target="_blank" rel="noopener">docs</a>{{end}}
     </summary>
     <p class="evidence">{{.Evidence.Description}}</p>
     {{if .Fix.Config}}<pre class="fix"><code>{{.Fix.Config}}</code></pre>{{end}}

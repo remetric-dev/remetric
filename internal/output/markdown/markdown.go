@@ -100,6 +100,9 @@ func writeFindings(b *strings.Builder, fs []findings.Finding) {
 
 func writeFinding(b *strings.Builder, f findings.Finding) {
 	fmt.Fprintf(b, "#### [%s] %s\n\n", f.Severity, f.Title)
+	if f.DocURL != "" {
+		fmt.Fprintf(b, "**Reference:** [%s](%s)\n\n", f.DocURL, f.DocURL)
+	}
 	if f.Evidence.Description != "" {
 		fmt.Fprintf(b, "%s\n\n", f.Evidence.Description)
 	}
