@@ -60,8 +60,11 @@ func filterAtLeast(fs []findings.Finding, min findings.Severity) []findings.Find
 
 // renderEmpty writes the appropriate empty-state output for cfg.Output.
 //
-// When totalCount == 0 the analyzer produced no findings at all - show
-// copy.NoResults plus a doctor hint.
+// totalCount is the number of findings that survived the --ignore filter
+// (callers pass len(all) where `all` is post-Apply). When totalCount == 0
+// either the analyzer produced no findings or every finding was dropped
+// by --ignore - show copy.NoResults plus a doctor hint. The non-zero
+// `ignored` footer disambiguates these two cases for the user.
 //
 // When totalCount > 0 but the slice handed to the renderer is empty,
 // every finding was below minSev - show a filter hint with the

@@ -21,86 +21,27 @@ func TestNoop_NonTTYWriter(t *testing.T) {
 	}
 }
 
-func TestLineReporter_StartDoneNoWarnings(t *testing.T) {
-	var buf bytes.Buffer
-	r := newWithTTY(&buf, false, true)
-	r.Start("cardinality")
-	r.Done("cardinality", 812*time.Millisecond, 0)
-	want := "▸ cardinality... done (812ms)\n"
-	if got := buf.String(); got != want {
-		t.Errorf("buf = %q, want %q", got, want)
-	}
-}
-
-func TestLineReporter_DoneSingularWarning(t *testing.T) {
-	var buf bytes.Buffer
-	r := newWithTTY(&buf, false, true)
-	r.Start("unusedmetrics")
-	r.Done("unusedmetrics", 287*time.Millisecond, 1)
-	if got := buf.String(); !strings.Contains(got, "1 warning)") {
-		t.Errorf("buf = %q, want singular '1 warning'", got)
-	}
-	if got := buf.String(); strings.Contains(got, "1 warnings") {
-		t.Errorf("buf = %q, should not pluralise on count=1", got)
-	}
-}
-
-func TestLineReporter_DonePluralWarnings(t *testing.T) {
-	var buf bytes.Buffer
-	r := newWithTTY(&buf, false, true)
-	r.Start("alerthygiene")
-	r.Done("alerthygiene", 2*time.Second, 3)
-	if got := buf.String(); !strings.Contains(got, "3 warnings)") {
-		t.Errorf("buf = %q, want plural '3 warnings'", got)
-	}
-}
-
-func TestLineReporter_DoneRoundsDurationToMillisecond(t *testing.T) {
+func TestFormatDoneTail(t *testing.T) {
 	tests := []struct {
-		name string
-		dur  time.Duration
-		want string
+		name     string
+		dur      time.Duration
+		warnings int
+		want     string
 	}{
-		{"sub-ms truncated", 103*time.Millisecond + 624*time.Microsecond + 458*time.Nanosecond, "done (104ms)\n"},
-		{"tiny duration", 1*time.Millisecond + 811*time.Microsecond, "done (2ms)\n"},
-		{"super-second", 2*time.Second + 103*time.Millisecond + 87*time.Microsecond, "done (2.103s)\n"},
+		{"no warnings, sub-ms truncated", 103*time.Millisecond + 624*time.Microsecond + 458*time.Nanosecond, 0, "done (104ms)\n"},
+		{"no warnings, tiny duration", 1*time.Millisecond + 811*time.Microsecond, 0, "done (2ms)\n"},
+		{"no warnings, super-second", 2*time.Second + 103*time.Millisecond + 87*time.Microsecond, 0, "done (2.103s)\n"},
+		{"singular warning", 287 * time.Millisecond, 1, "done (287ms, 1 warning)\n"},
+		{"plural warnings", 2 * time.Second, 3, "done (2s, 3 warnings)\n"},
+		{"plural at boundary", time.Millisecond, 2, "done (1ms, 2 warnings)\n"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			var buf bytes.Buffer
-			r := newWithTTY(&buf, false, true)
-			r.Start("phase")
-			r.Done("phase", tc.dur, 0)
-			if got := buf.String(); !strings.Contains(got, tc.want) {
-				t.Errorf("buf = %q, want substring %q", got, tc.want)
+			if got := formatDoneTail(tc.dur, tc.warnings); got != tc.want {
+				t.Errorf("formatDoneTail(%v, %d) = %q, want %q", tc.dur, tc.warnings, got, tc.want)
 			}
 		})
 	}
-}
-
-func TestLineReporter_NoProgressOverridesTTY(t *testing.T) {
-	var buf bytes.Buffer
-	r := newWithTTY(&buf, true, true)
-	r.Start("cardinality")
-	r.Done("cardinality", time.Second, 0)
-	if got := buf.String(); got != "" {
-		t.Errorf("noProgress=true should suppress output: buf = %q", got)
-	}
-}
-
-func TestLineReporter_ConcurrencySafe(t *testing.T) {
-	var buf bytes.Buffer
-	r := newWithTTY(&buf, false, true)
-	var wg sync.WaitGroup
-	for i := 0; i < 10; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			r.Start("phase")
-			r.Done("phase", time.Millisecond, 0)
-		}()
-	}
-	wg.Wait()
 }
 
 type safeBuf struct {
@@ -131,7 +72,7 @@ func finalAfterRedraws(s string) string {
 
 func TestSpinner_NoProgressYieldsNoop(t *testing.T) {
 	var buf bytes.Buffer
-	r := newWithTTYSpinner(&buf, true, true)
+	r := newWithTTY(&buf, true, true)
 	r.Start("phase")
 	r.Done("phase", time.Second, 0)
 	if got := buf.String(); got != "" {
@@ -141,17 +82,17 @@ func TestSpinner_NoProgressYieldsNoop(t *testing.T) {
 
 func TestSpinner_NonTTYWriterYieldsNoop(t *testing.T) {
 	var buf bytes.Buffer
-	r := newWithTTYSpinner(&buf, false, false)
+	r := newWithTTY(&buf, false, false)
 	r.Start("phase")
 	r.Done("phase", time.Second, 0)
 	if got := buf.String(); got != "" {
-		t.Errorf("non-TTY writer with spinner factory must be noop: buf = %q", got)
+		t.Errorf("non-TTY writer must be noop: buf = %q", got)
 	}
 }
 
-func TestSpinner_FinalLineMatchesLineReporter(t *testing.T) {
+func TestSpinner_FinalLineNoWarnings(t *testing.T) {
 	var buf safeBuf
-	r := newWithTTYSpinner(&buf, false, true)
+	r := newWithTTY(&buf, false, true)
 	r.Start("cardinality")
 	r.Done("cardinality", 812*time.Millisecond, 0)
 	want := "▸ cardinality... done (812ms)\n"
@@ -173,7 +114,7 @@ func TestSpinner_FinalLineSingularPluralWarnings(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			var buf safeBuf
-			r := newWithTTYSpinner(&buf, false, true)
+			r := newWithTTY(&buf, false, true)
 			r.Start("unusedmetrics")
 			r.Done("unusedmetrics", 287*time.Millisecond, tc.warnings)
 			if got := finalAfterRedraws(buf.String()); got != tc.want {
@@ -185,7 +126,7 @@ func TestSpinner_FinalLineSingularPluralWarnings(t *testing.T) {
 
 func TestSpinner_EmitsFramesBetweenStartAndDone(t *testing.T) {
 	var buf safeBuf
-	r := newWithTTYSpinner(&buf, false, true)
+	r := newWithTTY(&buf, false, true)
 	r.Start("phase")
 	time.Sleep(250 * time.Millisecond)
 	r.Done("phase", 250*time.Millisecond, 0)
@@ -200,7 +141,7 @@ func TestSpinner_EmitsFramesBetweenStartAndDone(t *testing.T) {
 
 func TestSpinner_DoneStopsSpinnerGoroutine(t *testing.T) {
 	var buf safeBuf
-	r := newWithTTYSpinner(&buf, false, true)
+	r := newWithTTY(&buf, false, true)
 	r.Start("phase")
 	time.Sleep(150 * time.Millisecond)
 	r.Done("phase", 150*time.Millisecond, 0)
@@ -213,7 +154,7 @@ func TestSpinner_DoneStopsSpinnerGoroutine(t *testing.T) {
 
 func TestSpinner_SequentialPhases(t *testing.T) {
 	var buf safeBuf
-	r := newWithTTYSpinner(&buf, false, true)
+	r := newWithTTY(&buf, false, true)
 	for _, name := range []string{"a", "b", "c", "d"} {
 		r.Start(name)
 		time.Sleep(120 * time.Millisecond)
@@ -225,4 +166,19 @@ func TestSpinner_SequentialPhases(t *testing.T) {
 			t.Errorf("expected phase %q to render done line: %q", name, s)
 		}
 	}
+}
+
+func TestSpinner_ConcurrencySafe(t *testing.T) {
+	var buf safeBuf
+	r := newWithTTY(&buf, false, true)
+	var wg sync.WaitGroup
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			r.Start("phase")
+			r.Done("phase", time.Millisecond, 0)
+		}()
+	}
+	wg.Wait()
 }

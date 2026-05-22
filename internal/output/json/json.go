@@ -21,23 +21,13 @@ func New(w io.Writer) *Renderer { return &Renderer{w: w} }
 
 // RenderFindings emits the minimal { "findings": [...], "summary": {...} }
 // envelope for focused subcommands. Summary is computed on the fly from fs.
+// "ignored_count" is omitted (use RenderFindingsWithIgnored to include it).
 func (r *Renderer) RenderFindings(fs []findings.Finding) error {
-	if fs == nil {
-		fs = []findings.Finding{}
-	}
-	rep := findings.NewReport("", fs)
-	envelope := struct {
-		Findings []findings.Finding `json:"findings"`
-		Summary  findings.Summary   `json:"summary"`
-	}{
-		Findings: fs,
-		Summary:  rep.Summary,
-	}
-	return r.encode(envelope)
+	return r.RenderFindingsWithIgnored(fs, 0)
 }
 
 // RenderFindingsWithIgnored is RenderFindings + an ignored counter.
-// When ignored == 0 the "ignored_count" key is omitted.
+// When ignored == 0 the "ignored_count" key is omitted (via omitempty).
 func (r *Renderer) RenderFindingsWithIgnored(fs []findings.Finding, ignored int) error {
 	if fs == nil {
 		fs = []findings.Finding{}

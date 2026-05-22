@@ -40,22 +40,12 @@ type Reporter interface {
 //   - w is not an *os.File backed by a terminal
 //   - noProgress is true
 func New(w io.Writer, noProgress bool) Reporter {
-	return newImpl(w, noProgress, false /*forceTTY*/, true /*wantSpinner*/)
+	return newWithTTY(w, noProgress, false)
 }
 
-// newWithTTY is the test seam for the simple line reporter (no spinner).
-// When forceTTY is true the TTY check is bypassed.
+// newWithTTY is the test seam. When forceTTY is true the TTY check is
+// bypassed and a spinner reporter is returned (still respecting noProgress).
 func newWithTTY(w io.Writer, noProgress, forceTTY bool) Reporter {
-	return newImpl(w, noProgress, forceTTY, false)
-}
-
-// newWithTTYSpinner is the test seam for the spinner reporter.
-// When forceTTY is true the TTY check is bypassed.
-func newWithTTYSpinner(w io.Writer, noProgress, forceTTY bool) Reporter {
-	return newImpl(w, noProgress, forceTTY, true)
-}
-
-func newImpl(w io.Writer, noProgress, forceTTY, wantSpinner bool) Reporter {
 	if noProgress || w == nil {
 		return noopReporter{}
 	}
@@ -68,35 +58,13 @@ func newImpl(w io.Writer, noProgress, forceTTY, wantSpinner bool) Reporter {
 	if !isTTY {
 		return noopReporter{}
 	}
-	if wantSpinner {
-		return &spinnerReporter{w: w}
-	}
-	return &lineReporter{w: w}
+	return &spinnerReporter{w: w}
 }
 
 type noopReporter struct{}
 
 func (noopReporter) Start(string)                    {}
 func (noopReporter) Done(string, time.Duration, int) {}
-
-// lineReporter writes one status line per phase without intermediate ticks.
-// Kept for tests and as a fallback if a future caller wants the simpler shape.
-type lineReporter struct {
-	w  io.Writer
-	mu sync.Mutex
-}
-
-func (r *lineReporter) Start(name string) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	_, _ = fmt.Fprintf(r.w, "▸ %s... ", name)
-}
-
-func (r *lineReporter) Done(_ string, dur time.Duration, warnings int) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	_, _ = fmt.Fprint(r.w, formatDoneTail(dur, warnings))
-}
 
 // spinnerReporter shows a braille spinner with elapsed seconds while a
 // phase runs, then overwrites with the final done line.

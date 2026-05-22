@@ -16,7 +16,7 @@ import (
 
 func newPromScanStub(t *testing.T) *httptest.Server {
 	t.Helper()
-	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		switch {
 		case r.URL.Path == "/-/healthy":
@@ -54,6 +54,8 @@ func newPromScanStub(t *testing.T) *httptest.Server {
 			http.NotFound(w, r)
 		}
 	}))
+	t.Cleanup(srv.Close)
+	return srv
 }
 
 func TestScan_RequiresPrometheus(t *testing.T) {
@@ -71,7 +73,6 @@ func TestScan_RequiresPrometheus(t *testing.T) {
 
 func TestScan_JSONReport(t *testing.T) {
 	ts := newPromScanStub(t)
-	defer ts.Close()
 
 	var out bytes.Buffer
 	code := cli.ExecuteWith(cli.Args{
@@ -146,7 +147,7 @@ func TestScan_IncludesAlertHygieneRunner(t *testing.T) {
 
 func TestScan_FailOnCriticalExits3WhenCriticalFindingPresent(t *testing.T) {
 	ts := newPromScanStub(t)
-	defer ts.Close()
+
 	var stdout, stderr bytes.Buffer
 	code := cli.ExecuteWith(cli.Args{
 		Version: "test",
@@ -165,7 +166,7 @@ func TestScan_FailOnCriticalExits3WhenCriticalFindingPresent(t *testing.T) {
 
 func TestScan_FailOnNoneExits0EvenWithCritical(t *testing.T) {
 	ts := newPromScanStub(t)
-	defer ts.Close()
+
 	var stdout, stderr bytes.Buffer
 	code := cli.ExecuteWith(cli.Args{
 		Version: "test",
@@ -184,7 +185,7 @@ func TestScan_FailOnNoneExits0EvenWithCritical(t *testing.T) {
 
 func TestScan_SkipsUnusedWhenNoGrafana(t *testing.T) {
 	ts := newPromScanStub(t)
-	defer ts.Close()
+
 	var out bytes.Buffer
 	code := cli.ExecuteWith(cli.Args{
 		Version: "test",

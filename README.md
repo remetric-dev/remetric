@@ -366,6 +366,8 @@ Exit codes: `0` clean, `1` runtime error, `2` flag/usage error, `3` findings at 
 **Can I silence known-noisy metrics or alerts?**
 Yes, with `--ignore-metric`, `--ignore-label`, `--ignore-alert` (anchored regex, repeatable). Patterns can also come from `REMETRIC_IGNORE_*` env vars or `.remetric.yaml`. See `## Ignoring findings`.
 
+`--ignore` applies to commands that produce `Finding`s: `scan`, `report`, `cardinality top`, `cardinality suspicious`, `alerts unused`, `alerts always-firing`, `metrics unused`. It does NOT apply to `cardinality labels` (which emits a label inventory, not findings) or `doctor` (connectivity self-check).
+
 **What about Loki / multi-tenant Cortex / Mimir?**
 Post-v0.1 roadmap. Today, single-tenant Prometheus + VictoriaMetrics. Tenant routing via `vmauth` URL prefixes works; `X-Scope-OrgID` is not yet wired.
 

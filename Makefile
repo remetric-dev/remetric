@@ -9,7 +9,7 @@ LOCAL_PREFIX     := github.com/remetric-dev/remetric
 VERSION          ?= $(shell git describe --tags --dirty --always 2>/dev/null || echo dev)
 LDFLAGS          := -s -w -X main.version=$(VERSION)
 
-.PHONY: help build test test-race fmt vet lint vuln clean e2e-up e2e-down e2e e2e-vm-up e2e-vm-down e2e-vm e2e-alerts release-check release-snapshot docker-build install-check
+.PHONY: help build test test-race cover fmt vet lint vuln clean e2e-up e2e-down e2e e2e-vm-up e2e-vm-down e2e-vm e2e-alerts release-check release-snapshot docker-build install-check go-work
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*## / {printf "  %-14s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -23,6 +23,14 @@ test: ## Run unit tests
 test-race: ## Run unit tests with -race
 	$(GO) test -race ./...
 
+cover: ## Run tests with coverage; write coverage.out + per-package summary
+	$(GO) test -coverprofile=coverage.out -covermode=atomic ./...
+	@echo
+	@echo "==> Per-package coverage"
+	@$(GO) tool cover -func=coverage.out | tail -1
+	@echo "==> Per-package detail (above 0%):"
+	@$(GO) tool cover -func=coverage.out | awk '$$3 != "0.0%" && $$1 != "total:"' | sort -k3 -h
+
 clean: ## Remove build outputs
 	rm -rf bin coverage.out
 
@@ -34,8 +42,12 @@ vet: ## go vet all packages
 	$(GO) vet ./...
 
 lint: ## golangci-lint (local if installed, otherwise pinned docker image)
+	@# Clean the cache first: golangci-lint indexes by file path, so orphan
+	@# entries from removed worktrees can resurface as bogus errors after
+	@# the worktree is gone. Cheap to clean; expensive to debug.
 	@if command -v golangci-lint >/dev/null 2>&1; then \
 	  echo ">> using local golangci-lint ($$(golangci-lint version 2>/dev/null | head -n1))"; \
+	  golangci-lint cache clean >/dev/null 2>&1 || true; \
 	  golangci-lint run --timeout 5m; \
 	else \
 	  echo ">> golangci-lint not found locally, using docker $(GOLANGCI_IMAGE)"; \
@@ -81,6 +93,16 @@ DOCKER_IMAGE ?= remetric:dev
 
 docker-build: ## Build docker image (single-arch, host CPU)
 	docker build --build-arg VERSION=$(VERSION) -t $(DOCKER_IMAGE) .
+
+go-work: ## Create/update go.work so gopls finds modules in active worktrees
+	@# go.work is .gitignored - this target is purely for editor tooling
+	@# (gopls). When working from .claude/worktrees/<name>/, gopls otherwise
+	@# logs "This file is within module ../<name>, which is not included in
+	@# your workspace". The build itself never reads go.work.
+	@if [ ! -f go.work ]; then $(GO) work init; fi
+	@$(GO) work use . $$(ls -d .claude/worktrees/*/ 2>/dev/null) >/dev/null
+	@echo ">> go.work updated. Modules:"
+	@$(GO) work edit -json | python3 -c "import sys,json;d=json.load(sys.stdin);print('\n'.join(' - '+u['DiskPath'] for u in d.get('Use',[])))" 2>/dev/null || cat go.work
 
 install-check: ## Lint install.sh with shellcheck if installed
 	@if command -v shellcheck >/dev/null 2>&1; then \
