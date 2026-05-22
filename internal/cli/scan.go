@@ -19,6 +19,7 @@ import (
 	"github.com/remetric-dev/remetric/internal/analyzers/unusedmetrics"
 	"github.com/remetric-dev/remetric/internal/config"
 	"github.com/remetric-dev/remetric/internal/findings"
+	"github.com/remetric-dev/remetric/internal/progress"
 	prom "github.com/remetric-dev/remetric/internal/prometheus"
 )
 
@@ -85,11 +86,15 @@ into a single findings.Report shape — see the JSON schema in the spec.`,
 				unusedmetrics.New(),
 				alerthygiene.New(alerthygiene.Config{}),
 			}
+			prog := progress.New(cmd.ErrOrStderr(), cfg.NoProgress)
 			for _, a := range runners {
+				prog.Start(a.Name())
+				t0 := time.Now()
 				res, err := a.Analyze(ctx, deps)
 				if err != nil {
 					return &exitError{code: 1, err: fmt.Errorf("%s: %w", a.Name(), err)}
 				}
+				prog.Done(a.Name(), time.Since(t0), len(res.Warnings))
 				all = append(all, res.Findings...)
 				warnings = append(warnings, res.Warnings...)
 			}

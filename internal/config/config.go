@@ -24,6 +24,7 @@ type Config struct {
 	Verbose    bool
 	Timeout    time.Duration
 	NoColor    bool   `mapstructure:"no_color"`
+	NoProgress bool   `mapstructure:"no_progress"`
 	Output     string `mapstructure:"output"`
 }
 
@@ -73,6 +74,7 @@ func BindFlags(fs *pflag.FlagSet) {
 	fs.String("vmalert-basic-auth", "", "Basic auth as user:password for vmalert (defaults to --prom-basic-auth)")
 	fs.Bool("vmalert-tls-skip-verify", false, "Skip TLS verification for vmalert")
 	fs.Bool("no-color", false, "Disable colored output")
+	fs.Bool("no-progress", false, "Disable per-phase progress on stderr (auto-off when not a TTY)")
 	fs.String("output", "terminal", "Output format: terminal|json")
 	fs.BoolP("verbose", "v", false, "Verbose logging")
 	fs.Duration("timeout", 5*time.Minute, "Total operation timeout")
@@ -109,6 +111,7 @@ func Load(fs *pflag.FlagSet, cfgPath string) (*Config, error) {
 		"vmalert-basic-auth":      "vmalert.basic_auth",
 		"vmalert-tls-skip-verify": "vmalert.tls_skip_verify",
 		"no-color":                "no_color",
+		"no-progress":             "no_progress",
 		"output":                  "output",
 		"verbose":                 "verbose",
 		"timeout":                 "timeout",

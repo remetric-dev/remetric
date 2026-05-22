@@ -24,6 +24,7 @@ import (
 	outjson "github.com/remetric-dev/remetric/internal/output/json"
 	"github.com/remetric-dev/remetric/internal/output/markdown"
 	"github.com/remetric-dev/remetric/internal/output/terminal"
+	"github.com/remetric-dev/remetric/internal/progress"
 )
 
 //nolint:gocyclo // RunE closure is straight-line config-gathering; no branching to flatten
@@ -100,11 +101,15 @@ instead. Use --out FILE to write to a file (or '-' for stdout).`,
 				all      []findings.Finding
 				warnings []string
 			)
+			prog := progress.New(cmd.ErrOrStderr(), cfg.NoProgress)
 			for _, a := range runners {
+				prog.Start(a.Name())
+				t0 := time.Now()
 				res, err := a.Analyze(ctx, deps)
 				if err != nil {
 					return &exitError{code: 1, err: fmt.Errorf("%s: %w", a.Name(), err)}
 				}
+				prog.Done(a.Name(), time.Since(t0), len(res.Warnings))
 				all = append(all, res.Findings...)
 				warnings = append(warnings, res.Warnings...)
 			}

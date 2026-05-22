@@ -106,6 +106,21 @@ func TestLoad_NoColorEnv(t *testing.T) {
 	}
 }
 
+func TestConfig_NoProgressBinding(t *testing.T) {
+	fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
+	config.BindFlags(fs)
+	if err := fs.Parse([]string{"--no-progress"}); err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	cfg, err := config.Load(fs, "")
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if !cfg.NoProgress {
+		t.Errorf("cfg.NoProgress = false, want true")
+	}
+}
+
 func TestConfig_DefaultOutput(t *testing.T) {
 	fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
 	config.BindFlags(fs)
