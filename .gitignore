@@ -17,6 +17,10 @@ coverage.txt
 # MkDocs build output
 /site/
 
+# Build-time staging of install.sh into docs/ (workflow copies it; install.sh
+# at repo root is the source of truth).
+/docs/install.sh
+
 # Go workspace files
 go.work
 go.work.sum

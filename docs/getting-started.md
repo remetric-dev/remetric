@@ -7,7 +7,7 @@ A 60-second tour from install to your first scan.
 The one-line install script drops the latest release into `$HOME/.local/bin`:
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/remetric-dev/remetric/main/install.sh | sh
+curl -sSL https://remetric.dev/install.sh | sh
 ```
 
 Override the destination with `REMETRIC_INSTALL_DIR=/usr/local/bin sh install.sh`,
