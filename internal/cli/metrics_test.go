@@ -43,6 +43,76 @@ func newPromUnusedStub(t *testing.T) *httptest.Server {
 	}))
 }
 
+// newPromUnusedCriticalStub returns a Prom stub where the unused metric has
+// >100k head series so UnusedMetricSeverity classifies it Critical.
+func newPromUnusedCriticalStub(t *testing.T) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.URL.Path == "/-/healthy":
+			w.WriteHeader(http.StatusOK)
+		case r.URL.Path == "/api/v1/label/__name__/values":
+			_ = json.NewEncoder(w).Encode(map[string]any{"status": "success", "data": []string{"nobody_uses_me"}})
+		case strings.HasPrefix(r.URL.Path, "/api/v1/status/tsdb"):
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"status": "success",
+				"data": map[string]any{
+					"headStats":               map[string]any{"numSeries": 200_000},
+					"seriesCountByMetricName": []map[string]any{{"name": "nobody_uses_me", "value": 200_000}},
+				},
+			})
+		case r.URL.Path == "/api/v1/rules":
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"status": "success",
+				"data":   map[string]any{"groups": []map[string]any{}},
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+}
+
+func TestMetricsUnused_FailOnCriticalExits3WhenCriticalFindingPresent(t *testing.T) {
+	ts := newPromUnusedCriticalStub(t)
+	defer ts.Close()
+
+	var stdout, stderr bytes.Buffer
+	code := cli.ExecuteWith(cli.Args{
+		Version: "test",
+		Args: []string{
+			"metrics", "unused",
+			"--prometheus", ts.URL,
+			"--fail-on", "critical",
+		},
+		Stdout: &stdout,
+		Stderr: &stderr,
+	})
+	if code != 3 {
+		t.Fatalf("exit code = %d, want 3 (stderr=%s)", code, stderr.String())
+	}
+}
+
+func TestMetricsUnused_FailOnNoneExits0EvenWithCritical(t *testing.T) {
+	ts := newPromUnusedCriticalStub(t)
+	defer ts.Close()
+
+	var stdout, stderr bytes.Buffer
+	code := cli.ExecuteWith(cli.Args{
+		Version: "test",
+		Args: []string{
+			"metrics", "unused",
+			"--prometheus", ts.URL,
+			"--fail-on", "none",
+		},
+		Stdout: &stdout,
+		Stderr: &stderr,
+	})
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0 (stderr=%s)", code, stderr.String())
+	}
+}
+
 func TestMetricsUnused_RequiresPrometheus(t *testing.T) {
 	var out bytes.Buffer
 	code := cli.ExecuteWith(cli.Args{

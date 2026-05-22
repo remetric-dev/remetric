@@ -53,3 +53,43 @@ func TestOptions_Apply(t *testing.T) {
 		t.Errorf("logger not stored")
 	}
 }
+
+func TestWithMaxInFlight_GetterExposesValue(t *testing.T) {
+	c, err := New("http://example.invalid", WithMaxInFlight(12))
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	if got := c.MaxInFlight(); got != 12 {
+		t.Errorf("c.MaxInFlight() = %d, want 12", got)
+	}
+}
+
+func TestMaxInFlight_DefaultsToFive(t *testing.T) {
+	c, err := New("http://example.invalid")
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	if got := c.MaxInFlight(); got != 5 {
+		t.Errorf("c.MaxInFlight() = %d, want 5", got)
+	}
+}
+
+func TestWithMaxInFlight_ClampsZeroToOne(t *testing.T) {
+	c, err := New("http://example.invalid", WithMaxInFlight(0))
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	if got := c.MaxInFlight(); got != 1 {
+		t.Errorf("c.MaxInFlight() = %d, want 1 (clamped from 0)", got)
+	}
+}
+
+func TestWithMaxInFlight_ClampsNegativeToOne(t *testing.T) {
+	c, err := New("http://example.invalid", WithMaxInFlight(-3))
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	if got := c.MaxInFlight(); got != 1 {
+		t.Errorf("c.MaxInFlight() = %d, want 1 (clamped from -3)", got)
+	}
+}

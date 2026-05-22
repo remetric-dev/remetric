@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -280,5 +281,162 @@ func TestAlertHygiene_VictoriaWithoutVMAlertWarns(t *testing.T) {
 	}
 	if len(res.Warnings) != 1 || !strings.Contains(res.Warnings[0], "VictoriaMetrics detected without --vmalert") {
 		t.Errorf("Warnings = %v, want VM-specific warning", res.Warnings)
+	}
+}
+
+func TestAlertHygiene_ConcurrencyCappedByMaxInFlight(t *testing.T) {
+	// Stub: 50 alerts, all returning empty (will be classified as never-fired).
+	// Server tracks peak concurrent in-flight query_range requests using an
+	// atomic counter incremented on entry and decremented on exit, with a
+	// 20ms delay inside the handler to force overlap.
+	var (
+		inFlight  atomic.Int32
+		peak      atomic.Int32
+		callCount atomic.Int32
+	)
+	names := make([]string, 50)
+	for i := range names {
+		names[i] = fmt.Sprintf("Alert%d", i)
+	}
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/rules", func(w http.ResponseWriter, _ *http.Request) {
+		var rules strings.Builder
+		for i, n := range names {
+			if i > 0 {
+				rules.WriteString(",")
+			}
+			fmt.Fprintf(&rules, `{"name":%q,"query":"up","type":"alerting"}`, n)
+		}
+		fmt.Fprintf(w,
+			`{"status":"success","data":{"groups":[{"name":"g","file":"f.yml","rules":[%s]}]}}`,
+			rules.String())
+	})
+	mux.HandleFunc("/api/v1/query_range", func(w http.ResponseWriter, _ *http.Request) {
+		callCount.Add(1)
+		cur := inFlight.Add(1)
+		defer inFlight.Add(-1)
+		for {
+			p := peak.Load()
+			if cur <= p || peak.CompareAndSwap(p, cur) {
+				break
+			}
+		}
+		time.Sleep(20 * time.Millisecond)
+		fmt.Fprint(w, `{"status":"success","data":{"resultType":"matrix","result":[]}}`)
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+
+	c, err := prom.New(srv.URL, prom.WithFlavorHint(prom.FlavorProm), prom.WithMaxInFlight(4))
+	if err != nil {
+		t.Fatalf("prom.New: %v", err)
+	}
+	a := New(Config{Lookback: 168 * time.Hour, Step: time.Hour, Now: func() time.Time { return time.Unix(1715000000, 0) }})
+	res, err := a.Analyze(context.Background(), analyzers.Deps{Prom: c, Logger: slog.Default()})
+	if err != nil {
+		t.Fatalf("Analyze: %v", err)
+	}
+
+	if got := callCount.Load(); got != 50 {
+		t.Errorf("callCount = %d, want 50", got)
+	}
+	if got := peak.Load(); got > 4 {
+		t.Errorf("peak in-flight = %d, want <= 4 (maxInFlight)", got)
+	}
+	if got := len(res.Findings); got != 50 {
+		t.Errorf("len(findings) = %d, want 50", got)
+	}
+}
+
+func TestAlertHygiene_NotSupportedAborts(t *testing.T) {
+	// Stub returns 5xx-ish "not supported" on query_range. The analyzer
+	// should classify that as ErrNotSupported and return a warning without
+	// findings, regardless of how many alerts exist.
+	names := make([]string, 30)
+	for i := range names {
+		names[i] = fmt.Sprintf("Alert%d", i)
+	}
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/rules", func(w http.ResponseWriter, _ *http.Request) {
+		var rules strings.Builder
+		for i, n := range names {
+			if i > 0 {
+				rules.WriteString(",")
+			}
+			fmt.Fprintf(&rules, `{"name":%q,"query":"up","type":"alerting"}`, n)
+		}
+		fmt.Fprintf(w,
+			`{"status":"success","data":{"groups":[{"name":"g","file":"f.yml","rules":[%s]}]}}`,
+			rules.String())
+	})
+	mux.HandleFunc("/api/v1/query_range", func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "query_range not supported", http.StatusNotImplemented)
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+
+	c, err := prom.New(srv.URL, prom.WithFlavorHint(prom.FlavorProm))
+	if err != nil {
+		t.Fatalf("prom.New: %v", err)
+	}
+	a := New(Config{Lookback: 168 * time.Hour, Step: time.Hour, Now: func() time.Time { return time.Unix(1715000000, 0) }})
+	res, err := a.Analyze(context.Background(), analyzers.Deps{Prom: c, Logger: slog.Default()})
+	if err != nil {
+		t.Fatalf("Analyze: %v", err)
+	}
+
+	if len(res.Findings) != 0 {
+		t.Errorf("len(findings) = %d, want 0", len(res.Findings))
+	}
+	if len(res.Warnings) != 1 || !strings.Contains(res.Warnings[0], "query_range not supported") {
+		t.Errorf("warnings = %v, want one ‘query_range not supported’ warning", res.Warnings)
+	}
+}
+
+func TestAlertHygiene_PartialFailures(t *testing.T) {
+	// Stub: 10 alerts; the first 3 return HTTP 500, the rest empty results.
+	// Analyzer should report 7 findings + one "skipped 3 alerts" warning.
+	names := []string{"A", "B", "C", "D", "E", "F", "G", "H", "I", "J"}
+	failing := map[string]bool{"A": true, "B": true, "C": true}
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/rules", func(w http.ResponseWriter, _ *http.Request) {
+		var rules strings.Builder
+		for i, n := range names {
+			if i > 0 {
+				rules.WriteString(",")
+			}
+			fmt.Fprintf(&rules, `{"name":%q,"query":"up","type":"alerting"}`, n)
+		}
+		fmt.Fprintf(w,
+			`{"status":"success","data":{"groups":[{"name":"g","file":"f.yml","rules":[%s]}]}}`,
+			rules.String())
+	})
+	mux.HandleFunc("/api/v1/query_range", func(w http.ResponseWriter, r *http.Request) {
+		name := alertNameFromQuery(r.URL.Query().Get("query"))
+		if failing[name] {
+			http.Error(w, "boom", http.StatusInternalServerError)
+			return
+		}
+		fmt.Fprint(w, `{"status":"success","data":{"resultType":"matrix","result":[]}}`)
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+
+	c, err := prom.New(srv.URL, prom.WithFlavorHint(prom.FlavorProm))
+	if err != nil {
+		t.Fatalf("prom.New: %v", err)
+	}
+	a := New(Config{Lookback: 168 * time.Hour, Step: time.Hour, Now: func() time.Time { return time.Unix(1715000000, 0) }})
+	res, err := a.Analyze(context.Background(), analyzers.Deps{Prom: c, Logger: slog.Default()})
+	if err != nil {
+		t.Fatalf("Analyze: %v", err)
+	}
+
+	if got := len(res.Findings); got != 7 {
+		t.Errorf("len(findings) = %d, want 7", got)
+	}
+	if len(res.Warnings) != 1 || !strings.Contains(res.Warnings[0], "skipped 3 alerts") {
+		t.Errorf("warnings = %v, want one ‘skipped 3 alerts’ warning", res.Warnings)
 	}
 }

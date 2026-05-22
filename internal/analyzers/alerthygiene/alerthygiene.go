@@ -11,7 +11,10 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"sync/atomic"
 	"time"
+
+	"golang.org/x/sync/errgroup"
 
 	"github.com/remetric-dev/remetric/internal/analyzers"
 	"github.com/remetric-dev/remetric/internal/findings"
@@ -132,6 +135,36 @@ func fetchRules(ctx context.Context, d analyzers.Deps) (*prom.Rules, string, err
 	return rules, "", nil
 }
 
+// flatRule pairs an alerting rule with its enclosing group for downstream
+// reporting after the parallel classify fan-out flattens the rule tree.
+type flatRule struct {
+	group prom.RuleGroup
+	rule  prom.Rule
+}
+
+// flattenAlertingRules returns one flatRule per alerting rule across all
+// groups, dropping recording rules.
+func flattenAlertingRules(rules *prom.Rules) []flatRule {
+	var flat []flatRule
+	for _, g := range rules.Groups {
+		for _, r := range g.Rules {
+			if r.Type != "alerting" {
+				continue
+			}
+			flat = append(flat, flatRule{group: g, rule: r})
+		}
+	}
+	return flat
+}
+
+// classifyResult carries one classified alert from a worker goroutine back
+// to the main Analyze loop for sorting and finding construction.
+type classifyResult struct {
+	flat  flatRule
+	cls   classification
+	ratio float64
+}
+
 // Analyze implements analyzers.Analyzer.
 func (a *Analyzer) Analyze(ctx context.Context, d analyzers.Deps) (analyzers.Result, error) {
 	rules, warning, err := fetchRules(ctx, d)
@@ -141,44 +174,45 @@ func (a *Analyzer) Analyze(ctx context.Context, d analyzers.Deps) (analyzers.Res
 	if warning != "" {
 		return analyzers.Result{Warnings: []string{warning}}, nil
 	}
+
 	totalSteps := computeTotalSteps(a.cfg.Lookback, a.cfg.Step)
 	end := a.cfg.Now()
 	start := end.Add(-a.cfg.Lookback)
+	flat := flattenAlertingRules(rules)
 
-	var (
-		out      []findings.Finding
-		warnings []string
-		skipped  int
-	)
-	for _, g := range rules.Groups {
-		for _, r := range g.Rules {
-			if r.Type != "alerting" {
-				continue
-			}
-			expr := fmt.Sprintf(`ALERTS{alertname=%q}`, r.Name)
-			res, err := d.Prom.QueryRange(ctx, expr, start, end, a.cfg.Step)
-			if err != nil {
-				if errors.Is(err, prom.ErrNotSupported) {
-					warnings = append(warnings, "alerthygiene: query_range not supported on backend — skipping analyzer")
-					return analyzers.Result{Warnings: warnings}, nil
-				}
-				if d.Logger != nil {
-					d.Logger.Debug("alerthygiene: query_range failed", "alert", r.Name, "err", err)
-				}
-				skipped++
-				continue
-			}
-			cls, ratio := classify(res.Result, totalSteps)
-			if cls == classNone {
-				continue
-			}
-			f := buildFinding(r, g, cls, ratio, a.cfg.Lookback, totalSteps)
-			out = append(out, f)
+	ch := make(chan classifyResult, len(flat))
+	var skipped atomic.Int32
+
+	g, ctx := errgroup.WithContext(ctx)
+	g.SetLimit(d.Prom.MaxInFlight())
+	for _, fr := range flat {
+		fr := fr
+		g.Go(func() error {
+			return a.classifyOne(ctx, d, fr, start, end, totalSteps, ch, &skipped)
+		})
+	}
+	waitErr := g.Wait()
+	close(ch)
+
+	if waitErr != nil {
+		if errors.Is(waitErr, prom.ErrNotSupported) {
+			return analyzers.Result{
+				Warnings: []string{"alerthygiene: query_range not supported on backend — skipping analyzer"},
+			}, nil
 		}
+		return analyzers.Result{}, waitErr
 	}
-	if skipped > 0 {
-		warnings = append(warnings, fmt.Sprintf("alerthygiene: skipped %d alerts due to query failures", skipped))
+
+	var out []findings.Finding
+	for r := range ch {
+		out = append(out, buildFinding(r.flat.rule, r.flat.group, r.cls, r.ratio, a.cfg.Lookback, totalSteps))
 	}
+
+	var warnings []string
+	if s := skipped.Load(); s > 0 {
+		warnings = append(warnings, fmt.Sprintf("alerthygiene: skipped %d alerts due to query failures", s))
+	}
+
 	sort.SliceStable(out, func(i, j int) bool {
 		if out[i].Severity != out[j].Severity {
 			return out[i].Severity > out[j].Severity
@@ -186,6 +220,38 @@ func (a *Analyzer) Analyze(ctx context.Context, d analyzers.Deps) (analyzers.Res
 		return out[i].Title < out[j].Title
 	})
 	return analyzers.Result{Findings: out, Warnings: warnings}, nil
+}
+
+// classifyOne queries ALERTS for a single alerting rule and either pushes a
+// classifyResult onto ch, increments skipped on transient failure, or returns
+// prom.ErrNotSupported to abort the whole errgroup.
+func (a *Analyzer) classifyOne(
+	ctx context.Context,
+	d analyzers.Deps,
+	fr flatRule,
+	start, end time.Time,
+	totalSteps int,
+	ch chan<- classifyResult,
+	skipped *atomic.Int32,
+) error {
+	expr := fmt.Sprintf(`ALERTS{alertname=%q}`, fr.rule.Name)
+	res, err := d.Prom.QueryRange(ctx, expr, start, end, a.cfg.Step)
+	if err != nil {
+		if errors.Is(err, prom.ErrNotSupported) {
+			return err
+		}
+		if d.Logger != nil {
+			d.Logger.Debug("alerthygiene: query_range failed", "alert", fr.rule.Name, "err", err)
+		}
+		skipped.Add(1)
+		return nil
+	}
+	cls, ratio := classify(res.Result, totalSteps)
+	if cls == classNone {
+		return nil
+	}
+	ch <- classifyResult{flat: fr, cls: cls, ratio: ratio}
+	return nil
 }
 
 func buildFinding(r prom.Rule, g prom.RuleGroup, cls classification, ratio float64, lookback time.Duration, steps int) findings.Finding {

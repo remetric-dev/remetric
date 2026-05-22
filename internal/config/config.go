@@ -13,6 +13,8 @@ import (
 
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
+
+	"github.com/remetric-dev/remetric/internal/findings"
 )
 
 // Config is the fully-resolved runtime configuration.
@@ -24,7 +26,12 @@ type Config struct {
 	Verbose    bool
 	Timeout    time.Duration
 	NoColor    bool   `mapstructure:"no_color"`
+	NoProgress bool   `mapstructure:"no_progress"`
 	Output     string `mapstructure:"output"`
+	FailOn     string `mapstructure:"fail_on"`
+
+	failOnSeverity findings.Severity
+	failOnEnabled  bool
 }
 
 // PrometheusConfig holds Prometheus client options.
@@ -73,7 +80,9 @@ func BindFlags(fs *pflag.FlagSet) {
 	fs.String("vmalert-basic-auth", "", "Basic auth as user:password for vmalert (defaults to --prom-basic-auth)")
 	fs.Bool("vmalert-tls-skip-verify", false, "Skip TLS verification for vmalert")
 	fs.Bool("no-color", false, "Disable colored output")
+	fs.Bool("no-progress", false, "Disable per-phase progress on stderr (auto-off when not a TTY)")
 	fs.String("output", "terminal", "Output format: terminal|json")
+	fs.String("fail-on", "none", "Exit non-zero (3) when any finding is at or above this severity: low|medium|high|critical|none")
 	fs.BoolP("verbose", "v", false, "Verbose logging")
 	fs.Duration("timeout", 5*time.Minute, "Total operation timeout")
 	fs.String("config", "", "Path to config file")
@@ -109,7 +118,9 @@ func Load(fs *pflag.FlagSet, cfgPath string) (*Config, error) {
 		"vmalert-basic-auth":      "vmalert.basic_auth",
 		"vmalert-tls-skip-verify": "vmalert.tls_skip_verify",
 		"no-color":                "no_color",
+		"no-progress":             "no_progress",
 		"output":                  "output",
+		"fail-on":                 "fail_on",
 		"verbose":                 "verbose",
 		"timeout":                 "timeout",
 	}
@@ -148,6 +159,12 @@ func Load(fs *pflag.FlagSet, cfgPath string) (*Config, error) {
 	return &cfg, nil
 }
 
+// FailOnThreshold returns the parsed --fail-on severity and whether the
+// gate is enabled. Result is valid only after Validate has succeeded.
+func (c *Config) FailOnThreshold() (findings.Severity, bool) {
+	return c.failOnSeverity, c.failOnEnabled
+}
+
 // Validate reports errors that should prevent the program from running:
 // conflicting auth options on the Prometheus or vmalert clients, and
 // unrecognized --backend values. The empty string is treated as "auto".
@@ -164,5 +181,11 @@ func (c *Config) Validate() error {
 	default:
 		return fmt.Errorf("config: --backend %q invalid (want auto|prometheus|victoria)", c.Backend)
 	}
+	sev, enabled, err := findings.ParseFailOn(c.FailOn)
+	if err != nil {
+		return fmt.Errorf("invalid --fail-on: %w", err)
+	}
+	c.failOnSeverity = sev
+	c.failOnEnabled = enabled
 	return nil
 }

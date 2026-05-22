@@ -95,6 +95,71 @@ func TestReport_InvalidFormat(t *testing.T) {
 	}
 }
 
+// newReportCriticalStub returns a Prom stub that yields at least one critical
+// cardinality finding (high_card_metric at 500k series of 1M total).
+func newReportCriticalStub(t *testing.T) *httptest.Server {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.URL.Path == "/api/v1/status/buildinfo":
+			_, _ = w.Write([]byte(`{"status":"success","data":{"version":"2.51.2","revision":"abc","goVersion":"go1.22"}}`))
+		case r.URL.Path == "/api/v1/label/__name__/values":
+			_, _ = w.Write([]byte(`{"status":"success","data":["high_card_metric"]}`))
+		case r.URL.Path == "/api/v1/labels":
+			_, _ = w.Write([]byte(`{"status":"success","data":["__name__"]}`))
+		case strings.HasPrefix(r.URL.Path, "/api/v1/label/") && strings.HasSuffix(r.URL.Path, "/values"):
+			_, _ = w.Write([]byte(`{"status":"success","data":[]}`))
+		case r.URL.Path == "/api/v1/status/tsdb":
+			_, _ = w.Write([]byte(`{"status":"success","data":{"headStats":{"numSeries":1000000},"seriesCountByMetricName":[{"name":"high_card_metric","value":500000}]}}`))
+		case r.URL.Path == "/api/v1/rules":
+			_, _ = w.Write([]byte(`{"status":"success","data":{"groups":[]}}`))
+		case r.URL.Path == "/api/v1/query_range":
+			_, _ = w.Write([]byte(`{"status":"success","data":{"resultType":"matrix","result":[]}}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	return srv
+}
+
+func TestReport_FailOnCriticalExits3WhenCriticalFindingPresent(t *testing.T) {
+	srv := newReportCriticalStub(t)
+	var stdout, stderr bytes.Buffer
+	code := cli.ExecuteWith(cli.Args{
+		Version: "test",
+		Args: []string{
+			"report",
+			"--prometheus", srv.URL,
+			"--fail-on", "critical",
+		},
+		Stdout: &stdout,
+		Stderr: &stderr,
+	})
+	if code != 3 {
+		t.Fatalf("exit code = %d, want 3 (stderr=%s)", code, stderr.String())
+	}
+}
+
+func TestReport_FailOnNoneExits0EvenWithCritical(t *testing.T) {
+	srv := newReportCriticalStub(t)
+	var stdout, stderr bytes.Buffer
+	code := cli.ExecuteWith(cli.Args{
+		Version: "test",
+		Args: []string{
+			"report",
+			"--prometheus", srv.URL,
+			"--fail-on", "none",
+		},
+		Stdout: &stdout,
+		Stderr: &stderr,
+	})
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0 (stderr=%s)", code, stderr.String())
+	}
+}
+
 func TestReport_InvalidGlobalOutputRejected(t *testing.T) {
 	srv := newReportStub(t)
 	var stdout, stderr bytes.Buffer

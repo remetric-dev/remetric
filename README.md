@@ -179,21 +179,6 @@ remetric alerts always-firing \
 Tune the sampling window with `--lookback` (default `168h`) and `--step`
 (default `1h`). For VictoriaMetrics, point `--vmalert` at the vmalert API.
 
-**Large alert estates:** the analyzer issues one `query_range` per alerting
-rule and runs the loop sequentially. With defaults each call asks
-Prometheus for `168` data points (168h / 1h step); 500 alerts → 500
-sequential calls. On the largest targets the per-call latency and the cost
-of computing 168 points dominates wall-clock. Narrow the window to keep
-each call cheap:
-
-```bash
-remetric alerts unused --prometheus http://localhost:9090 \
-  --lookback 24h --step 5m
-```
-
-A future release may parallelize the per-rule loop under
-`--prom-max-in-flight`.
-
 ### Unified report
 
 `remetric report` runs every analyzer and emits a single document in
@@ -243,16 +228,36 @@ Global flags (subset; see `--help` for the full list):
 - `--prom-basic-auth USER:PASS` — Basic auth.
 - `--prom-max-in-flight N` — Concurrency cap (default 5).
 - `--output FORMAT` — `terminal` (default) or `json`.
+- `--fail-on SEV` — Exit 3 if any finding is at or above this severity. Env: `REMETRIC_FAIL_ON`. Default `none`.
 - `--no-color` — Disable colored output (`NO_COLOR` env also respected).
 - `--verbose` — Debug-level slog logging on stderr.
 
 ## What's still missing in v0.1
 
 - No dashboard sprawl analyzer — Phase 5.
-- No `--fail-on` flag for CI integration.
 - No Homebrew tap (binaries + Docker image already ship; see Install above).
 
 These land in subsequent phases.
+
+## CI integration
+
+Pair any analyzer command with `--fail-on=critical` to fail the build when a
+finding at or above the chosen severity is present. Default behaviour
+(`--fail-on=none`) preserves zero-exit regardless of findings.
+
+```bash
+# Fail the build if any critical-severity finding is present
+remetric scan --prometheus http://localhost:9090 --fail-on=critical
+```
+
+Exit codes:
+
+| Code | Meaning |
+|------|---------|
+| 0    | Clean exit (no findings ≥ threshold, or `--fail-on=none`). |
+| 1    | Runtime or analyzer error. |
+| 2    | Flag / usage error. |
+| 3    | Findings at or above `--fail-on` threshold. |
 
 ## Building from source
 

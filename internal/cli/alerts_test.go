@@ -128,6 +128,98 @@ func TestAlertsUnused_EmptyStateScopesToClass(t *testing.T) {
 	}
 }
 
+// alert_hygiene/never_fired is hard-coded to SeverityMedium, so the gate
+// for `alerts unused` is exercised with --fail-on medium rather than critical.
+func TestAlertsUnused_FailOnMediumExits3WhenMediumFindingPresent(t *testing.T) {
+	srv := newAlertsStub(t, map[string]string{
+		"NoisyAlert": `{"resultType":"matrix","result":[]}`,
+	})
+	var stdout, stderr bytes.Buffer
+	code := cli.ExecuteWith(cli.Args{
+		Version: "test",
+		Args: []string{
+			"alerts", "unused",
+			"--prometheus", srv.URL,
+			"--lookback", "1h", "--step", "1m",
+			"--fail-on", "medium",
+		},
+		Stdout: &stdout,
+		Stderr: &stderr,
+	})
+	if code != 3 {
+		t.Fatalf("exit code = %d, want 3 (stderr=%s)", code, stderr.String())
+	}
+}
+
+func TestAlertsUnused_FailOnNoneExits0EvenWithMedium(t *testing.T) {
+	srv := newAlertsStub(t, map[string]string{
+		"NoisyAlert": `{"resultType":"matrix","result":[]}`,
+	})
+	var stdout, stderr bytes.Buffer
+	code := cli.ExecuteWith(cli.Args{
+		Version: "test",
+		Args: []string{
+			"alerts", "unused",
+			"--prometheus", srv.URL,
+			"--lookback", "1h", "--step", "1m",
+			"--fail-on", "none",
+		},
+		Stdout: &stdout,
+		Stderr: &stderr,
+	})
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0 (stderr=%s)", code, stderr.String())
+	}
+}
+
+func TestAlertsAlwaysFiring_FailOnCriticalExits3WhenCriticalFindingPresent(t *testing.T) {
+	vals := strings.Repeat(`[1715000000,"1"],`, 60)
+	vals = strings.TrimSuffix(vals, ",")
+	body := fmt.Sprintf(
+		`{"resultType":"matrix","result":[{"metric":{"alertstate":"firing"},"values":[%s]}]}`, vals)
+	srv := newAlertsStub(t, map[string]string{"BrokenAlert": body})
+
+	var stdout, stderr bytes.Buffer
+	code := cli.ExecuteWith(cli.Args{
+		Version: "test",
+		Args: []string{
+			"alerts", "always-firing",
+			"--prometheus", srv.URL,
+			"--lookback", "1h", "--step", "1m",
+			"--fail-on", "critical",
+		},
+		Stdout: &stdout,
+		Stderr: &stderr,
+	})
+	if code != 3 {
+		t.Fatalf("exit code = %d, want 3 (stderr=%s)", code, stderr.String())
+	}
+}
+
+func TestAlertsAlwaysFiring_FailOnNoneExits0EvenWithCritical(t *testing.T) {
+	vals := strings.Repeat(`[1715000000,"1"],`, 60)
+	vals = strings.TrimSuffix(vals, ",")
+	body := fmt.Sprintf(
+		`{"resultType":"matrix","result":[{"metric":{"alertstate":"firing"},"values":[%s]}]}`, vals)
+	srv := newAlertsStub(t, map[string]string{"BrokenAlert": body})
+
+	var stdout, stderr bytes.Buffer
+	code := cli.ExecuteWith(cli.Args{
+		Version: "test",
+		Args: []string{
+			"alerts", "always-firing",
+			"--prometheus", srv.URL,
+			"--lookback", "1h", "--step", "1m",
+			"--fail-on", "none",
+		},
+		Stdout: &stdout,
+		Stderr: &stderr,
+	})
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0 (stderr=%s)", code, stderr.String())
+	}
+}
+
 func TestAlertsUnused_LimitZeroShowsNoResults(t *testing.T) {
 	// Even though there's a matching never_fired finding, --limit 0 should suppress it and
 	// render the "no results" copy, not the severity-hint message.
