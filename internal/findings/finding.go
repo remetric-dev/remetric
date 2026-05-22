@@ -8,11 +8,11 @@ type Category string
 
 // Known finding categories.
 const (
-	CategoryCardinality     Category = "cardinality"
-	CategoryUnusedMetrics   Category = "unused_metrics"
-	CategoryLabelPatterns   Category = "label_patterns"
-	CategoryAlertHygiene    Category = "alert_hygiene"
-	CategoryDashboardSprawl Category = "dashboard_sprawl"
+	CategoryCardinality      Category = "cardinality"
+	CategoryUnusedMetrics    Category = "unused_metrics"
+	CategoryLabelPatterns    Category = "label_patterns"
+	CategoryAlertHygiene     Category = "alert_hygiene"
+	CategoryDashboardHygiene Category = "dashboard_hygiene"
 )
 
 // Finding is a single piece of feedback produced by an analyzer.

@@ -18,7 +18,7 @@ const (
 	ClassLabelPatternOverlyGranular Class = "label-pattern-overly-granular"
 	ClassNeverFiringAlert           Class = "never-firing-alert"
 	ClassAlwaysFiringAlert          Class = "always-firing-alert"
-	ClassDashboardSprawl            Class = "dashboard-sprawl"
+	ClassBrokenPanel                Class = "broken-panel"
 )
 
 const docsBaseURL = "https://remetric.dev/findings/"
