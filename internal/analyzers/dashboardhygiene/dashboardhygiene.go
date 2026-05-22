@@ -9,6 +9,7 @@ package dashboardhygiene
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/url"
 	"sort"
@@ -16,6 +17,7 @@ import (
 	"github.com/remetric-dev/remetric/internal/analyzers"
 	"github.com/remetric-dev/remetric/internal/findings"
 	"github.com/remetric-dev/remetric/internal/grafana"
+	"github.com/remetric-dev/remetric/internal/prometheus"
 	"github.com/remetric-dev/remetric/internal/promqlx"
 )
 
@@ -23,6 +25,12 @@ import (
 // per broken-panel finding. Beyond this, panel titles are listed
 // only in the Fix snippet, not as structured evidence.
 const maxSamplePanelTitles = 5
+
+// errRulesUnavailable signals that the rules endpoint is unreachable
+// on the detected flavor (VictoriaMetrics without a vmalert client).
+// Callers convert it to a Result warning rather than failing the
+// analyzer. Matches the contract in internal/analyzers/unusedmetrics.
+var errRulesUnavailable = errors.New("rules unavailable")
 
 // Analyzer is the dashboard-hygiene analyzer (broken panels).
 type Analyzer struct{}
@@ -58,6 +66,15 @@ func (a *Analyzer) Analyze(ctx context.Context, d analyzers.Deps) (analyzers.Res
 		exists[n] = struct{}{}
 	}
 
+	var warnings []string
+	if err := collectRecordingOutputs(ctx, d, exists); err != nil {
+		if errors.Is(err, errRulesUnavailable) {
+			warnings = append(warnings, "rules unavailable: VictoriaMetrics detected without --vmalert URL - recording rules ignored")
+		} else {
+			return analyzers.Result{}, err
+		}
+	}
+
 	refs, err := d.Graf.Search(ctx)
 	if err != nil {
 		return analyzers.Result{}, fmt.Errorf("dashboardhygiene: grafana search: %w", err)
@@ -68,7 +85,6 @@ func (a *Analyzer) Analyze(ctx context.Context, d analyzers.Deps) (analyzers.Res
 		metric string
 	}
 	groups := map[key]*dashAgg{}
-	var warnings []string
 
 	for _, ref := range refs {
 		dash, err := d.Graf.Dashboard(ctx, ref.UID)
@@ -103,6 +119,46 @@ func (a *Analyzer) Analyze(ctx context.Context, d analyzers.Deps) (analyzers.Res
 	}
 	sort.SliceStable(out, func(i, j int) bool { return findingLess(out[i], out[j]) })
 	return analyzers.Result{Findings: out, Warnings: warnings}, nil
+}
+
+// collectRecordingOutputs adds the output name of every recording
+// rule to exists. Prefers d.VMAlert over d.Prom when present. On
+// VictoriaMetrics without a vmalert URL the sentinel errRulesUnavailable
+// is returned so callers can degrade gracefully.
+//
+// Unlike unusedmetrics.collectRuleUsage, this helper does not extract
+// metric names from rule expressions. The question this analyzer asks
+// is "does this metric exist?", which is answered by the rule's output
+// name, not by the metrics it consumes.
+func collectRecordingOutputs(ctx context.Context, d analyzers.Deps, exists map[string]struct{}) error {
+	client := d.Prom
+	if d.VMAlert != nil {
+		client = d.VMAlert
+	}
+	rules, err := client.Rules(ctx)
+	if err != nil {
+		if errors.Is(err, prometheus.ErrNotFound) {
+			_, _ = d.Prom.BuildInfo(ctx) // trigger cached flavor detection
+			if d.Prom.Flavor() == prometheus.FlavorVictoria {
+				return errRulesUnavailable
+			}
+		}
+		return fmt.Errorf("dashboardhygiene: rules: %w", err)
+	}
+	if d.VMAlert == nil {
+		_, _ = d.Prom.BuildInfo(ctx) // trigger cached flavor detection
+		if d.Prom.Flavor() == prometheus.FlavorVictoria {
+			return errRulesUnavailable
+		}
+	}
+	for _, g := range rules.Groups {
+		for _, r := range g.Rules {
+			if r.Type == "recording" && r.Name != "" {
+				exists[r.Name] = struct{}{}
+			}
+		}
+	}
+	return nil
 }
 
 // findingLess orders broken-panel findings deterministically by

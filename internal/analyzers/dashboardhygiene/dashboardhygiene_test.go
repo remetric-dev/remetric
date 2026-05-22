@@ -272,3 +272,32 @@ func TestAnalyzer_DistinctMissingMetricsEmitSeparateFindings(t *testing.T) {
 		t.Errorf("missing metrics mismatch (-want +got):\n%s", diff)
 	}
 }
+
+func TestAnalyzer_RecordingRuleOutputCountsAsExisting(t *testing.T) {
+	promURL, grafURL := newStubs(t, stubsConfig{
+		IngestedNames: []string{"up"}, // freshly_recorded_metric not in head yet
+		Rules: []ruleStub{
+			{Name: "freshly_recorded_metric", Query: "sum(up)", Type: "recording"},
+			{Name: "AlertA", Query: "up == 0", Type: "alerting"},
+		},
+		Dashboards: []dashboardStub{{
+			UID:   "d1",
+			Title: "RR",
+			Body: `{"dashboard":{"uid":"d1","title":"RR","panels":[
+				{"type":"graph","title":"P1","targets":[{"expr":"freshly_recorded_metric","datasource":{"type":"prometheus"}}]}
+			]}}`,
+		}},
+	})
+	pc, gc := mustClients(t, promURL, grafURL)
+
+	res, err := New().Analyze(context.Background(), analyzers.Deps{
+		Prom: pc, Graf: gc, Logger: slog.Default(), Limits: analyzers.DefaultLimits(),
+	})
+	if err != nil {
+		t.Fatalf("Analyze: %v", err)
+	}
+	if len(res.Findings) != 0 {
+		t.Errorf("Findings len = %d, want 0 (RR output should count as existing); got %+v",
+			len(res.Findings), res.Findings)
+	}
+}
