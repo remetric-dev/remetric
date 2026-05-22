@@ -5,6 +5,7 @@ package cli_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -244,5 +245,89 @@ func TestAlertsUnused_LimitZeroShowsNoResults(t *testing.T) {
 	out := stdout.String()
 	if !strings.Contains(out, "No unused alerts detected") {
 		t.Errorf("expected no-results copy with --limit 0; got:\n%s", out)
+	}
+}
+
+// TestAlertsUnused_IgnoreAlertScopedToClass pins the invariant that
+// cfg.IgnoreFilter().Apply runs AFTER class-scoping in alerts.go, NOT
+// before. A future refactor that moves the Apply call up to "be
+// consistent with the focused commands" would silently double-count
+// ignored findings across the two `alerts` subcommands. This test
+// makes that regression LOUD.
+//
+// Stub: 1 never_fired (NoisyAlert) + 1 always_firing (BrokenAlert).
+//
+//   - `alerts unused --ignore-alert=NoisyAlert`     -> ignored_count == 1
+//     (NoisyAlert is in the `unused` class; filter sees it)
+//   - `alerts unused --ignore-alert=BrokenAlert`    -> ignored_count == 0
+//     (BrokenAlert is always_firing, NOT in `unused` class;
+//     class-scoping drops it before filter sees it)
+func TestAlertsUnused_IgnoreAlertScopedToClass(t *testing.T) {
+	vals := strings.Repeat(`[1715000000,"1"],`, 60)
+	vals = strings.TrimSuffix(vals, ",")
+	firingBody := fmt.Sprintf(
+		`{"resultType":"matrix","result":[{"metric":{"alertstate":"firing"},"values":[%s]}]}`, vals)
+	srv := newAlertsStub(t, map[string]string{
+		"NoisyAlert":  `{"resultType":"matrix","result":[]}`,
+		"BrokenAlert": firingBody,
+	})
+
+	parse := func(s string) int {
+		t.Helper()
+		var env struct {
+			IgnoredCount int `json:"ignored_count"`
+		}
+		if err := json.Unmarshal([]byte(s), &env); err != nil {
+			t.Fatalf("unmarshal: %v\nout: %s", err, s)
+		}
+		return env.IgnoredCount
+	}
+
+	// Case 1: --ignore-alert matches a finding IN this subcommand's class.
+	{
+		var stdout, stderr bytes.Buffer
+		code := cli.ExecuteWith(cli.Args{
+			Version: "test",
+			Args: []string{
+				"alerts", "unused", "--prometheus", srv.URL,
+				"--lookback", "1h", "--step", "1m",
+				"--min-severity", "low",
+				"--output", "json",
+				"--ignore-alert", "NoisyAlert",
+			},
+			Stdout: &stdout,
+			Stderr: &stderr,
+		})
+		if code != 0 {
+			t.Fatalf("case1 exit = %d, stderr=%s", code, stderr.String())
+		}
+		if got := parse(stdout.String()); got != 1 {
+			t.Errorf("case1: ignored_count = %d, want 1", got)
+		}
+	}
+
+	// Case 2: --ignore-alert matches a finding NOT in this subcommand's class.
+	// If filter runs AFTER class-scoping (correct), ignored_count == 0.
+	// If filter runs BEFORE class-scoping (regression), ignored_count == 1.
+	{
+		var stdout, stderr bytes.Buffer
+		code := cli.ExecuteWith(cli.Args{
+			Version: "test",
+			Args: []string{
+				"alerts", "unused", "--prometheus", srv.URL,
+				"--lookback", "1h", "--step", "1m",
+				"--min-severity", "low",
+				"--output", "json",
+				"--ignore-alert", "BrokenAlert",
+			},
+			Stdout: &stdout,
+			Stderr: &stderr,
+		})
+		if code != 0 {
+			t.Fatalf("case2 exit = %d, stderr=%s", code, stderr.String())
+		}
+		if got := parse(stdout.String()); got != 0 {
+			t.Errorf("case2: ignored_count = %d, want 0 (BrokenAlert is always_firing, not in `unused` class)", got)
+		}
 	}
 }
