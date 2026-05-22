@@ -6,7 +6,6 @@ dist/
 .git/
 .github/
 .claude/
-docs/superpowers/
 
 # IDE / OS noise
 .idea/

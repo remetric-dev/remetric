@@ -92,8 +92,7 @@ remetric cardinality labels \
   --prometheus http://localhost:9090
 ```
 
-Both commands accept `--output json` for machine-readable output (schema in
-`.claude/spec.md` §5.5).
+Both commands accept `--output json` for machine-readable output.
 
 ## Unused-metric detection (Phase 3)
 
@@ -253,7 +252,7 @@ Global flags (subset; see `--help` for the full list):
 - No `--fail-on` flag for CI integration.
 - No Homebrew tap (binaries + Docker image already ship; see Install above).
 
-These land in subsequent phases (see `.claude/spec.md`).
+These land in subsequent phases.
 
 ## Building from source
 
