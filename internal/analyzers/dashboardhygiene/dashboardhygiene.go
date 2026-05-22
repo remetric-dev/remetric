@@ -236,10 +236,3 @@ func buildFinding(uid, missing string, agg dashAgg) findings.Finding {
 		},
 	}
 }
-
-// buildFix returns a paste-ready instruction block. Full implementation
-// comes in Task 11 (fix.go). For now the stub returns an empty string
-// so happy-path tests can pass without locking in the snippet format.
-func buildFix(_, _, _ string, _ []string) string {
-	return ""
-}
