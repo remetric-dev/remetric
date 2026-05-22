@@ -73,3 +73,23 @@ func TestMaxInFlight_DefaultsToFive(t *testing.T) {
 		t.Errorf("c.MaxInFlight() = %d, want 5", got)
 	}
 }
+
+func TestWithMaxInFlight_ClampsZeroToOne(t *testing.T) {
+	c, err := New("http://example.invalid", WithMaxInFlight(0))
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	if got := c.MaxInFlight(); got != 1 {
+		t.Errorf("c.MaxInFlight() = %d, want 1 (clamped from 0)", got)
+	}
+}
+
+func TestWithMaxInFlight_ClampsNegativeToOne(t *testing.T) {
+	c, err := New("http://example.invalid", WithMaxInFlight(-3))
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	if got := c.MaxInFlight(); got != 1 {
+		t.Errorf("c.MaxInFlight() = %d, want 1 (clamped from -3)", got)
+	}
+}
