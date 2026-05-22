@@ -41,14 +41,14 @@ The terminal output looks like this:
 ▸ labelpattern... done (8ms)
 ▸ unusedmetrics... done (13ms)
 ▸ alerthygiene... done (7ms)
-┌──────────┬────────────────────┬──────────┬────────┬────────┬────────────────┐
-│ SEVERITY │ METRIC             │ LABEL    │ SERIES │ UNIQUE │ EST. REDUCTION │
-├──────────┼────────────────────┼──────────┼────────┼────────┼────────────────┤
-│ CRITICAL │ app_requests_total │ trace_id │ 500    │ 500    │ ~499           │
-│ MEDIUM   │                    │ user_id  │ 500    │ 500    │ ~499           │
-│ MEDIUM   │                    │ trace_id │ 500    │ 500    │ ~499           │
-│ MEDIUM   │                    │          │ 0      │ 0      │ ~0             │
-└──────────┴────────────────────┴──────────┴────────┴────────┴────────────────┘
+┌──────────┬───────────────────────────────┬────────────────────┬──────────┬────────┬────────┬────────────────┐
+│ SEVERITY │ CLASS                         │ METRIC             │ LABEL    │ SERIES │ UNIQUE │ EST. REDUCTION │
+├──────────┼───────────────────────────────┼────────────────────┼──────────┼────────┼────────┼────────────────┤
+│ CRITICAL │ hot-label                     │ app_requests_total │ trace_id │ 500    │ 500    │ ~499           │
+│ MEDIUM   │ label-pattern-overly-granular │                    │ user_id  │ 500    │ 500    │ ~499           │
+│ MEDIUM   │ label-pattern-overly-granular │                    │ trace_id │ 500    │ 500    │ ~499           │
+│ MEDIUM   │ never-firing-alert            │ RemetricNeverFired │          │ 0      │ 0      │ ~0             │
+└──────────┴───────────────────────────────┴────────────────────┴──────────┴────────┴────────┴────────────────┘
 
 [CRITICAL] app_requests_total  ·  trace_id has 500 unique values
 Sample: trace-001f71cef44a4aca, trace-006ce2eaa75c9f65, trace-007fff8ea657221b, trace-0102b61d60431cf5, trace-0116b64ca9b86791
@@ -73,7 +73,13 @@ The output has three layers:
 2. **Severity table** - at-a-glance ranking. Columns:
     - `SEVERITY` - `CRITICAL` / `HIGH` / `MEDIUM` / `LOW`, computed from
       observed series counts, uniqueness ratios, and lookback windows.
-    - `METRIC` / `LABEL` - the entity that triggered the finding.
+    - `CLASS` - finding class slug (e.g. `hot-label`, `never-firing-alert`);
+      each class has a dedicated documentation page at
+      `remetric.dev/findings/<class>`.
+    - `METRIC` - the metric the finding is about. For label-only findings
+      this is empty (the issue is the label across many metrics). For alert
+      findings the alert rule name appears here.
+    - `LABEL` - the offending label (when applicable).
     - `SERIES` - total series in the metric.
     - `UNIQUE` - unique values seen on the offending label.
     - `EST. REDUCTION` - upper-bound series saved if you apply the fix.

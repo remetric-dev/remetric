@@ -39,6 +39,7 @@ func sampleFindings() []findings.Finding {
 		{
 			ID:       "card-istio_requests_total-destination_principal",
 			Severity: findings.SeverityCritical, Category: findings.CategoryCardinality,
+			Class:  findings.ClassHotLabel,
 			Title:  "high cardinality in istio_requests_total due to label \"destination_principal\"",
 			Metric: "istio_requests_total",
 			Evidence: findings.Evidence{
@@ -53,6 +54,7 @@ func sampleFindings() []findings.Finding {
 		{
 			ID:       "card-etcd_request_duration_seconds_bucket-grpc_method",
 			Severity: findings.SeverityHigh, Category: findings.CategoryCardinality,
+			Class:  findings.ClassHotLabel,
 			Title:  "high cardinality in etcd_request_duration_seconds_bucket due to label \"grpc_method\"",
 			Metric: "etcd_request_duration_seconds_bucket",
 			Evidence: findings.Evidence{
@@ -65,6 +67,7 @@ func sampleFindings() []findings.Finding {
 		{
 			ID:       "card-node_filesystem_size_bytes-device",
 			Severity: findings.SeverityMedium, Category: findings.CategoryCardinality,
+			Class:  findings.ClassHotLabel,
 			Title:  "high cardinality in node_filesystem_size_bytes due to label \"device\"",
 			Metric: "node_filesystem_size_bytes",
 			Evidence: findings.Evidence{
@@ -108,6 +111,53 @@ func TestRenderFindings_FixBlockOnlyForCritHigh(t *testing.T) {
 	}
 	if strings.Contains(out, "device\n    action: labeldrop") {
 		t.Errorf("medium row should NOT have a fix block")
+	}
+}
+
+func TestRenderFindings_ClassColumnAndAlertFallback(t *testing.T) {
+	fs := []findings.Finding{
+		{
+			ID:       "card-app_requests_total-trace_id",
+			Severity: findings.SeverityCritical,
+			Category: findings.CategoryCardinality,
+			Class:    findings.ClassHotLabel,
+			Metric:   "app_requests_total",
+			Evidence: findings.Evidence{Label: "trace_id", UniqueValues: 500, SeriesCount: 500},
+			Impact:   findings.Impact{SeriesReduction: 499},
+		},
+		{
+			ID:       "alert_hygiene/never_fired",
+			Severity: findings.SeverityMedium,
+			Category: findings.CategoryAlertHygiene,
+			Class:    findings.ClassNeverFiringAlert,
+			Alert:    "HighRequestLatencyP99",
+			// Metric and Evidence.Label intentionally empty - alert
+			// findings live in their own entity space.
+		},
+	}
+
+	var buf bytes.Buffer
+	r := New(&buf, WithColor(false))
+	if err := r.RenderFindings(fs); err != nil {
+		t.Fatalf("RenderFindings: %v", err)
+	}
+	out := buf.String()
+
+	// Class column header rendered.
+	if !strings.Contains(out, "CLASS") {
+		t.Errorf("expected CLASS column header in output:\n%s", out)
+	}
+	// Class slug appears in the cardinality row.
+	if !strings.Contains(out, "hot-label") {
+		t.Errorf("expected 'hot-label' class slug in row:\n%s", out)
+	}
+	// Class slug appears in the alert row.
+	if !strings.Contains(out, "never-firing-alert") {
+		t.Errorf("expected 'never-firing-alert' class slug in row:\n%s", out)
+	}
+	// Alert name renders in the Metric column (fallback).
+	if !strings.Contains(out, "HighRequestLatencyP99") {
+		t.Errorf("expected alert name in Metric column (fallback when Metric empty):\n%s", out)
 	}
 }
 

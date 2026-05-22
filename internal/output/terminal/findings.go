@@ -36,12 +36,20 @@ func (r *Renderer) RenderFindings(fs []findings.Finding) error {
 	tbl.SetOutputMirror(r.w)
 	tbl.SetStyle(table.StyleLight)
 	tbl.Style().Format.Header = text.FormatUpper
-	tbl.AppendHeader(table.Row{"Severity", "Metric", "Label", "Series", "Unique", "Est. Reduction"})
+	tbl.AppendHeader(table.Row{"Severity", "Class", "Metric", "Label", "Series", "Unique", "Est. Reduction"})
 	for _, f := range sorted {
 		sev := r.st.severity(f.Severity).Render(f.Severity.String())
+		// Alert findings have no metric, so we display the alert rule name
+		// in the Metric column. The Class column already disambiguates the
+		// finding type, so the column header stays "Metric".
+		metric := f.Metric
+		if metric == "" && f.Alert != "" {
+			metric = f.Alert
+		}
 		tbl.AppendRow(table.Row{
 			sev,
-			truncate(f.Metric, 28),
+			truncate(f.Class, 30),
+			truncate(metric, 28),
 			truncate(f.Evidence.Label, 24),
 			fmtInt(f.Evidence.SeriesCount),
 			fmtInt(int64(f.Evidence.UniqueValues)),
