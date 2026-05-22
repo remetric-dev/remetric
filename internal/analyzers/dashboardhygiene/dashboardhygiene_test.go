@@ -284,7 +284,8 @@ func TestAnalyzer_RecordingRuleOutputCountsAsExisting(t *testing.T) {
 			UID:   "d1",
 			Title: "RR",
 			Body: `{"dashboard":{"uid":"d1","title":"RR","panels":[
-				{"type":"graph","title":"P1","targets":[{"expr":"freshly_recorded_metric","datasource":{"type":"prometheus"}}]}
+				{"type":"graph","title":"FromRecording","targets":[{"expr":"freshly_recorded_metric","datasource":{"type":"prometheus"}}]},
+				{"type":"graph","title":"FromAlertName","targets":[{"expr":"AlertA","datasource":{"type":"prometheus"}}]}
 			]}}`,
 		}},
 	})
@@ -296,8 +297,12 @@ func TestAnalyzer_RecordingRuleOutputCountsAsExisting(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Analyze: %v", err)
 	}
-	if len(res.Findings) != 0 {
-		t.Errorf("Findings len = %d, want 0 (RR output should count as existing); got %+v",
+	if len(res.Findings) != 1 {
+		t.Fatalf("Findings len = %d, want 1 (only AlertA should remain; freshly_recorded_metric is in exists); got %+v",
 			len(res.Findings), res.Findings)
+	}
+	if res.Findings[0].Metric != "AlertA" {
+		t.Errorf("Finding Metric = %q, want %q (proves type filter held: RR output added, alert name not added)",
+			res.Findings[0].Metric, "AlertA")
 	}
 }

@@ -138,15 +138,24 @@ func collectRecordingOutputs(ctx context.Context, d analyzers.Deps, exists map[s
 	rules, err := client.Rules(ctx)
 	if err != nil {
 		if errors.Is(err, prometheus.ErrNotFound) {
-			_, _ = d.Prom.BuildInfo(ctx) // trigger cached flavor detection
+			// 404 on /api/v1/rules can mean older VM builds or non-VM
+			// gateways; trigger cached flavor detection so the next
+			// check reads Flavor() reliably regardless of call order.
+			// Same pattern as unusedmetrics.collectRuleUsage.
+			_, _ = d.Prom.BuildInfo(ctx)
 			if d.Prom.Flavor() == prometheus.FlavorVictoria {
 				return errRulesUnavailable
 			}
 		}
 		return fmt.Errorf("dashboardhygiene: rules: %w", err)
 	}
+	// VictoriaMetrics single-node serves /api/v1/rules at HTTP 200 with
+	// empty or partial groups because recording rules live in vmalert.
+	// Without --vmalert we can't trust this payload to be complete, so
+	// short-circuit to the same sentinel the 404 path takes. Mirrors
+	// the unusedmetrics.collectRuleUsage rationale (intentional dup).
 	if d.VMAlert == nil {
-		_, _ = d.Prom.BuildInfo(ctx) // trigger cached flavor detection
+		_, _ = d.Prom.BuildInfo(ctx)
 		if d.Prom.Flavor() == prometheus.FlavorVictoria {
 			return errRulesUnavailable
 		}
