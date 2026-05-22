@@ -60,7 +60,7 @@ func compile(kind string, raw []string) ([]*regexp.Regexp, error) {
 		}
 		re, err := regexp.Compile("^(" + s + ")$")
 		if err != nil {
-			return nil, fmt.Errorf("ignore: bad %s pattern %q: %w", kind, s, err)
+			return nil, fmt.Errorf("bad %s pattern %q: %w", kind, s, err)
 		}
 		out = append(out, re)
 	}

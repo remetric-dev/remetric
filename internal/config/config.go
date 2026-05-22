@@ -15,6 +15,7 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/remetric-dev/remetric/internal/findings"
+	"github.com/remetric-dev/remetric/internal/ignore"
 )
 
 // Config is the fully-resolved runtime configuration.
@@ -25,13 +26,23 @@ type Config struct {
 	Backend    string `mapstructure:"backend"`
 	Verbose    bool
 	Timeout    time.Duration
-	NoColor    bool   `mapstructure:"no_color"`
-	NoProgress bool   `mapstructure:"no_progress"`
-	Output     string `mapstructure:"output"`
-	FailOn     string `mapstructure:"fail_on"`
+	NoColor    bool         `mapstructure:"no_color"`
+	NoProgress bool         `mapstructure:"no_progress"`
+	Output     string       `mapstructure:"output"`
+	FailOn     string       `mapstructure:"fail_on"`
+	Ignore     IgnoreConfig `mapstructure:"ignore"`
 
 	failOnSeverity findings.Severity
 	failOnEnabled  bool
+	ignoreFilter   *ignore.Filter
+}
+
+// IgnoreConfig holds the raw regex patterns to drop findings whose
+// structured fields match. Parsed once in Validate.
+type IgnoreConfig struct {
+	Metric []string `mapstructure:"metric"`
+	Label  []string `mapstructure:"label"`
+	Alert  []string `mapstructure:"alert"`
 }
 
 // PrometheusConfig holds Prometheus client options.
@@ -83,6 +94,9 @@ func BindFlags(fs *pflag.FlagSet) {
 	fs.Bool("no-progress", false, "Disable per-phase progress on stderr (auto-off when not a TTY)")
 	fs.String("output", "terminal", "Output format: terminal|json")
 	fs.String("fail-on", "none", "Exit non-zero (3) when any finding is at or above this severity: low|medium|high|critical|none")
+	fs.StringArray("ignore-metric", nil, "Drop findings whose metric name matches this regex (repeatable). Anchored full-match.")
+	fs.StringArray("ignore-label", nil, "Drop findings whose evidence label matches this regex (repeatable). Anchored full-match.")
+	fs.StringArray("ignore-alert", nil, "Drop findings whose alert name matches this regex (repeatable). Anchored full-match.")
 	fs.BoolP("verbose", "v", false, "Verbose logging")
 	fs.Duration("timeout", 5*time.Minute, "Total operation timeout")
 	fs.String("config", "", "Path to config file")
@@ -121,6 +135,9 @@ func Load(fs *pflag.FlagSet, cfgPath string) (*Config, error) {
 		"no-progress":             "no_progress",
 		"output":                  "output",
 		"fail-on":                 "fail_on",
+		"ignore-metric":           "ignore.metric",
+		"ignore-label":            "ignore.label",
+		"ignore-alert":            "ignore.alert",
 		"verbose":                 "verbose",
 		"timeout":                 "timeout",
 	}
@@ -165,6 +182,10 @@ func (c *Config) FailOnThreshold() (findings.Severity, bool) {
 	return c.failOnSeverity, c.failOnEnabled
 }
 
+// IgnoreFilter returns the compiled filter. Always non-nil after
+// Validate has succeeded. A zero-pattern filter is a pass-through.
+func (c *Config) IgnoreFilter() *ignore.Filter { return c.ignoreFilter }
+
 // Validate reports errors that should prevent the program from running:
 // conflicting auth options on the Prometheus or vmalert clients, and
 // unrecognized --backend values. The empty string is treated as "auto".
@@ -187,5 +208,14 @@ func (c *Config) Validate() error {
 	}
 	c.failOnSeverity = sev
 	c.failOnEnabled = enabled
+	filter, err := ignore.New(ignore.Patterns{
+		Metric: c.Ignore.Metric,
+		Label:  c.Ignore.Label,
+		Alert:  c.Ignore.Alert,
+	})
+	if err != nil {
+		return fmt.Errorf("invalid --ignore-*: %w", err)
+	}
+	c.ignoreFilter = filter
 	return nil
 }

@@ -386,3 +386,95 @@ func TestConfig_FailOn_RejectsInvalidValue(t *testing.T) {
 		t.Errorf("Validate accepted --fail-on=nope, want error")
 	}
 }
+
+func TestLoad_IgnoreFlags(t *testing.T) {
+	fs := newFlagSet()
+	if err := fs.Parse([]string{
+		"--ignore-metric", "node_.*",
+		"--ignore-metric", "go_.*",
+		"--ignore-label", "pod",
+		"--ignore-alert", "HighMemoryUsage",
+	}); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	cfg, err := config.Load(fs, "")
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("Validate: %v", err)
+	}
+	if got := len(cfg.Ignore.Metric); got != 2 {
+		t.Errorf("Ignore.Metric = %v, want 2 entries", cfg.Ignore.Metric)
+	}
+	if got := len(cfg.Ignore.Label); got != 1 {
+		t.Errorf("Ignore.Label = %v, want 1 entry", cfg.Ignore.Label)
+	}
+	if got := len(cfg.Ignore.Alert); got != 1 {
+		t.Errorf("Ignore.Alert = %v, want 1 entry", cfg.Ignore.Alert)
+	}
+	if cfg.IgnoreFilter() == nil {
+		t.Error("IgnoreFilter() = nil, want non-nil after Validate")
+	}
+}
+
+func TestLoad_IgnoreEnv(t *testing.T) {
+	t.Setenv("REMETRIC_IGNORE_METRIC", "node_.*,go_.*")
+	fs := newFlagSet()
+	if err := fs.Parse(nil); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	cfg, err := config.Load(fs, "")
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("Validate: %v", err)
+	}
+	if got := len(cfg.Ignore.Metric); got != 2 {
+		t.Errorf("Ignore.Metric (env) = %v, want 2 entries", cfg.Ignore.Metric)
+	}
+}
+
+func TestLoad_IgnoreYAML(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "remetric.yaml")
+	body := []byte("ignore:\n  metric:\n    - node_.*\n    - go_.*\n  label:\n    - pod\n  alert:\n    - HighMemoryUsage\n")
+	if err := os.WriteFile(cfgPath, body, 0o644); err != nil {
+		t.Fatalf("write cfg: %v", err)
+	}
+	fs := newFlagSet()
+	if err := fs.Parse(nil); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	cfg, err := config.Load(fs, cfgPath)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("Validate: %v", err)
+	}
+	if got := len(cfg.Ignore.Metric); got != 2 {
+		t.Errorf("Ignore.Metric (yaml) = %v, want 2 entries", cfg.Ignore.Metric)
+	}
+	if got := len(cfg.Ignore.Label); got != 1 {
+		t.Errorf("Ignore.Label (yaml) = %v, want 1 entry", cfg.Ignore.Label)
+	}
+	if got := len(cfg.Ignore.Alert); got != 1 {
+		t.Errorf("Ignore.Alert (yaml) = %v, want 1 entry", cfg.Ignore.Alert)
+	}
+}
+
+func TestLoad_IgnoreBadRegexFailsValidate(t *testing.T) {
+	fs := newFlagSet()
+	if err := fs.Parse([]string{"--ignore-metric", "foo["}); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	cfg, err := config.Load(fs, "")
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if err := cfg.Validate(); err == nil {
+		t.Fatal("Validate returned nil; want error on bad regex")
+	}
+}
