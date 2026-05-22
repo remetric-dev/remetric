@@ -440,3 +440,58 @@ func TestAlertHygiene_PartialFailures(t *testing.T) {
 		t.Errorf("warnings = %v, want one 'skipped 3 alerts' warning", res.Warnings)
 	}
 }
+
+func TestAlertHygiene_PopulatesAlertField(t *testing.T) {
+	// Both never_fired and always_firing branches must populate Finding.Alert.
+	alwaysFiringVals := strings.Repeat(`[1715000000,"1"],`, 168)
+	alwaysFiringVals = strings.TrimSuffix(alwaysFiringVals, ",")
+	alwaysFiringBody := fmt.Sprintf(
+		`{"status":"success","data":{"resultType":"matrix","result":[{"metric":{"alertstate":"firing"},"values":[%s]}]}}`,
+		alwaysFiringVals)
+
+	tests := []struct {
+		name   string
+		result string // raw JSON for /api/v1/query_range
+		want   string // alert name
+	}{
+		{
+			name:   "never_fired",
+			result: `{"status":"success","data":{"resultType":"matrix","result":[]}}`,
+			want:   "NeverFiresAlert",
+		},
+		{
+			name:   "always_firing",
+			result: alwaysFiringBody,
+			want:   "AlwaysFiresAlert",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			mux := http.NewServeMux()
+			mux.HandleFunc("/api/v1/rules", func(w http.ResponseWriter, _ *http.Request) {
+				fmt.Fprintf(w, `{"status":"success","data":{"groups":[{"name":"g","file":"f.yml","rules":[{"name":%q,"query":"up","type":"alerting"}]}]}}`, tc.want)
+			})
+			mux.HandleFunc("/api/v1/query_range", func(w http.ResponseWriter, _ *http.Request) {
+				fmt.Fprint(w, tc.result)
+			})
+			srv := httptest.NewServer(mux)
+			t.Cleanup(srv.Close)
+
+			c, err := prom.New(srv.URL, prom.WithFlavorHint(prom.FlavorProm))
+			if err != nil {
+				t.Fatalf("prom.New: %v", err)
+			}
+			a := New(Config{Lookback: 168 * time.Hour, Step: time.Hour, Now: func() time.Time { return time.Unix(1715000000, 0) }})
+			res, err := a.Analyze(context.Background(), analyzers.Deps{Prom: c, Logger: slog.Default()})
+			if err != nil {
+				t.Fatalf("Analyze: %v", err)
+			}
+			if len(res.Findings) != 1 {
+				t.Fatalf("len(findings) = %d, want 1", len(res.Findings))
+			}
+			if res.Findings[0].Alert != tc.want {
+				t.Errorf("Alert = %q, want %q", res.Findings[0].Alert, tc.want)
+			}
+		})
+	}
+}

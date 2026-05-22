@@ -258,6 +258,43 @@ Exit codes:
 | 2    | Flag / usage error. |
 | 3    | Findings at or above `--fail-on` threshold. |
 
+## Ignoring findings
+
+Suppress findings that are known noise or out of scope. Patterns are
+**anchored full-match** regexes: `foo_.*` matches `foo_bar` but not
+`xfoo_bar`. Empty / whitespace-only patterns are silently ignored.
+
+Three target fields, each with its own flag (repeatable):
+
+| Flag | Drops findings whose ... |
+|------|--------------------------|
+| `--ignore-metric REGEX` | metric name matches |
+| `--ignore-label REGEX`  | evidence label matches |
+| `--ignore-alert REGEX`  | alert name matches |
+
+```bash
+# Repeatable flag
+remetric scan \
+  --prometheus http://localhost:9090 \
+  --ignore-metric='node_.*' \
+  --ignore-metric='go_.*' \
+  --ignore-alert='HighMemoryUsage'
+
+# Environment (comma-separated lists)
+REMETRIC_IGNORE_METRIC='node_.*,go_.*' \
+REMETRIC_IGNORE_ALERT='HighMemoryUsage' \
+  remetric scan --prometheus http://localhost:9090
+
+# YAML at ~/.config/remetric/.remetric.yaml or ./.remetric.yaml
+# ignore:
+#   metric: ["node_.*", "go_.*"]
+#   label:  ["pod"]
+#   alert:  ["HighMemoryUsage"]
+```
+
+The dropped count surfaces in every output format. Filter runs BEFORE
+`--fail-on`, so an ignored critical finding does not raise exit code 3.
+
 ## Building from source
 
 ```bash

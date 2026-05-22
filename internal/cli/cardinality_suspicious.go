@@ -79,11 +79,11 @@ environment) are explicitly ignored even when high-cardinality.`,
 			for _, w := range res.Warnings {
 				_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "! warning: %s\n", w)
 			}
-			all := res.Findings
+			all, ignored := cfg.IgnoreFilter().Apply(res.Findings)
 
 			filtered := filterAtLeast(all, minSev)
 			if len(filtered) == 0 {
-				return renderEmpty(cfg, cmd.OutOrStdout(), labelPatternCopy, minSev, len(all), tallyBySeverity(all))
+				return renderEmpty(cfg, cmd.OutOrStdout(), labelPatternCopy, minSev, len(all), tallyBySeverity(all), ignored)
 			}
 
 			sort.SliceStable(filtered, func(i, j int) bool {
@@ -98,10 +98,10 @@ environment) are explicitly ignored even when high-cardinality.`,
 			if len(filtered) == 0 {
 				// `--limit 0` (or smaller) truncated every finding away.
 				// Treat as "no results" so users see the new empty-state copy.
-				return renderEmpty(cfg, cmd.OutOrStdout(), labelPatternCopy, minSev, 0, nil)
+				return renderEmpty(cfg, cmd.OutOrStdout(), labelPatternCopy, minSev, 0, nil, ignored)
 			}
 
-			if err := renderFindings(cfg, cmd.OutOrStdout(), filtered); err != nil {
+			if err := renderFindings(cfg, cmd.OutOrStdout(), filtered, ignored); err != nil {
 				return err
 			}
 			sev, enabled := cfg.FailOnThreshold()

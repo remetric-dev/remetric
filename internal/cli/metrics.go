@@ -100,11 +100,11 @@ recording rule references count toward "used".`,
 			for _, w := range res.Warnings {
 				_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "! warning: %s\n", w)
 			}
-			all := res.Findings
+			all, ignored := cfg.IgnoreFilter().Apply(res.Findings)
 
 			filtered := filterAtLeast(all, minSev)
 			if len(filtered) == 0 {
-				return renderEmpty(cfg, cmd.OutOrStdout(), unusedMetricsCopy, minSev, len(all), tallyBySeverity(all))
+				return renderEmpty(cfg, cmd.OutOrStdout(), unusedMetricsCopy, minSev, len(all), tallyBySeverity(all), ignored)
 			}
 
 			sort.SliceStable(filtered, func(i, j int) bool {
@@ -117,10 +117,10 @@ recording rule references count toward "used".`,
 				filtered = filtered[:limit]
 			}
 			if len(filtered) == 0 {
-				return renderEmpty(cfg, cmd.OutOrStdout(), unusedMetricsCopy, minSev, 0, nil)
+				return renderEmpty(cfg, cmd.OutOrStdout(), unusedMetricsCopy, minSev, 0, nil, ignored)
 			}
 
-			if err := renderFindings(cfg, cmd.OutOrStdout(), filtered); err != nil {
+			if err := renderFindings(cfg, cmd.OutOrStdout(), filtered, ignored); err != nil {
 				return err
 			}
 			sev, enabled := cfg.FailOnThreshold()

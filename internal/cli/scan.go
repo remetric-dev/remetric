@@ -98,6 +98,7 @@ into a single findings.Report shape - see the JSON schema in the spec.`,
 				all = append(all, res.Findings...)
 				warnings = append(warnings, res.Warnings...)
 			}
+			all, ignored := cfg.IgnoreFilter().Apply(all)
 			filtered := filterAtLeast(all, minSev)
 			sort.SliceStable(filtered, func(i, j int) bool {
 				if filtered[i].Severity != filtered[j].Severity {
@@ -108,6 +109,7 @@ into a single findings.Report shape - see the JSON schema in the spec.`,
 
 			rep := buildReport(cmd, cfg, filtered, promClient)
 			rep.Warnings = warnings
+			rep.IgnoredCount = ignored
 			rep.ScannedAt = time.Now().UTC()
 			if err := renderReport(cfg, cmd.OutOrStdout(), rep); err != nil {
 				return err

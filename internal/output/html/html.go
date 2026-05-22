@@ -28,6 +28,7 @@ type viewData struct {
 	ScannedAtDisplay string
 	Warnings         []string
 	Counts           map[string]int
+	IgnoredCount     int
 	Severities       []string
 	Categories       []string
 	Findings         []findings.Finding
@@ -62,6 +63,7 @@ func (r *Renderer) RenderReport(rep *findings.Report) error {
 		ScannedAtDisplay: rep.ScannedAt.Format("2006-01-02 15:04 MST"),
 		Warnings:         rep.Warnings,
 		Counts:           rep.Summary.BySeverity,
+		IgnoredCount:     rep.IgnoredCount,
 		Severities:       []string{"CRITICAL", "HIGH", "MEDIUM", "LOW"},
 		Categories:       catList,
 		Findings:         rep.Findings,

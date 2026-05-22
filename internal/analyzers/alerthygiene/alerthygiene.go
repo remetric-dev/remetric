@@ -261,6 +261,7 @@ func buildFinding(r prom.Rule, g prom.RuleGroup, cls classification, ratio float
 			ID:       "alert_hygiene/never_fired",
 			Severity: findings.SeverityMedium,
 			Category: findings.CategoryAlertHygiene,
+			Alert:    r.Name,
 			Title:    fmt.Sprintf("Alert %s never fired in %s", r.Name, lookback),
 			Evidence: findings.Evidence{
 				Description: fmt.Sprintf("no firing samples in %s lookback (alertname=%s, file=%s, group=%s)",
@@ -280,6 +281,7 @@ func buildFinding(r prom.Rule, g prom.RuleGroup, cls classification, ratio float
 			ID:       "alert_hygiene/always_firing",
 			Severity: findings.SeverityCritical,
 			Category: findings.CategoryAlertHygiene,
+			Alert:    r.Name,
 			Title:    fmt.Sprintf("Alert %s firing %.1f%% of window (%d/%d steps)", r.Name, clamped*100, firing, steps),
 			Evidence: findings.Evidence{
 				Description: fmt.Sprintf("firing %.1f%% of %s lookback - likely broken threshold (alertname=%s, file=%s, group=%s)",

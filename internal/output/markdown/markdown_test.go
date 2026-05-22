@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"flag"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -66,5 +67,53 @@ func TestRenderer_FullReport_Golden(t *testing.T) {
 	}
 	if string(want) != buf.String() {
 		t.Errorf("output mismatch (run with -update to refresh):\nGOT:\n%s\nWANT:\n%s", buf.String(), string(want))
+	}
+}
+
+func TestRenderReport_IgnoredCountInSummary(t *testing.T) {
+	rep := &findings.Report{
+		Version:      "1.0",
+		ScannedAt:    time.Unix(1700000000, 0).UTC(),
+		Findings:     nil,
+		Summary:      findings.Summary{BySeverity: map[string]int{}},
+		IgnoredCount: 3,
+	}
+	var buf bytes.Buffer
+	if err := markdown.New(&buf).RenderReport(rep); err != nil {
+		t.Fatalf("RenderReport: %v", err)
+	}
+	if !strings.Contains(buf.String(), "**Ignored:** 3 findings") {
+		t.Errorf("expected ignored line in summary, got:\n%s", buf.String())
+	}
+}
+
+func TestRenderReport_IgnoredCountSingular(t *testing.T) {
+	rep := &findings.Report{
+		Version:      "1.0",
+		ScannedAt:    time.Unix(1700000000, 0).UTC(),
+		Findings:     nil,
+		Summary:      findings.Summary{BySeverity: map[string]int{}},
+		IgnoredCount: 1,
+	}
+	var buf bytes.Buffer
+	if err := markdown.New(&buf).RenderReport(rep); err != nil {
+		t.Fatalf("RenderReport: %v", err)
+	}
+	if !strings.Contains(buf.String(), "**Ignored:** 1 finding\n") {
+		t.Errorf("expected singular 'finding', got:\n%s", buf.String())
+	}
+	if strings.Contains(buf.String(), "1 findings") {
+		t.Errorf("should not pluralise on n=1:\n%s", buf.String())
+	}
+}
+
+func TestRenderReport_IgnoredCountZeroHidden(t *testing.T) {
+	rep := &findings.Report{Version: "1.0", ScannedAt: time.Unix(1700000000, 0).UTC(), Summary: findings.Summary{BySeverity: map[string]int{}}, IgnoredCount: 0}
+	var buf bytes.Buffer
+	if err := markdown.New(&buf).RenderReport(rep); err != nil {
+		t.Fatalf("RenderReport: %v", err)
+	}
+	if strings.Contains(buf.String(), "Ignored:") {
+		t.Errorf("IgnoredCount=0 should be hidden: %s", buf.String())
 	}
 }

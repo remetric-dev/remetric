@@ -27,7 +27,7 @@ func (r *Renderer) RenderReport(rep *findings.Report) error {
 	var b strings.Builder
 	writeHeader(&b, rep)
 	writeWarnings(&b, rep.Warnings)
-	writeSummary(&b, rep.Summary)
+	writeSummary(&b, rep)
 	writeFindings(&b, rep.Findings)
 	_, err := io.WriteString(r.w, b.String())
 	return err
@@ -59,7 +59,8 @@ func writeWarnings(b *strings.Builder, warnings []string) {
 	b.WriteString("\n")
 }
 
-func writeSummary(b *strings.Builder, s findings.Summary) {
+func writeSummary(b *strings.Builder, rep *findings.Report) {
+	s := rep.Summary
 	b.WriteString("## Summary\n\n")
 	b.WriteString("| Severity | Count |\n|----------|-------|\n")
 	for _, sev := range []string{"critical", "high", "medium", "low"} {
@@ -68,6 +69,13 @@ func writeSummary(b *strings.Builder, s findings.Summary) {
 	}
 	if s.PotentialSeriesReduction > 0 {
 		fmt.Fprintf(b, "\nPotential series reduction: **%d**\n", s.PotentialSeriesReduction)
+	}
+	if rep.IgnoredCount > 0 {
+		word := "findings"
+		if rep.IgnoredCount == 1 {
+			word = "finding"
+		}
+		fmt.Fprintf(b, "\n**Ignored:** %d %s\n", rep.IgnoredCount, word)
 	}
 }
 

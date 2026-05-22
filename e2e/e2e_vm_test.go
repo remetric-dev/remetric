@@ -203,3 +203,61 @@ func TestE2E_VM_Scan(t *testing.T) {
 		t.Errorf("expected non-empty findings from full scan against VM stack; out:\n%s", out)
 	}
 }
+
+func TestE2E_VM_IgnoreMetricDropsFromScan(t *testing.T) {
+	skipIfVMDown(t)
+	time.Sleep(5 * time.Second) // VM scrape settle
+
+	// Baseline: scan without --ignore captures app_requests_total findings.
+	baseOut, err := runCmd(t, binPath(t), "scan",
+		"--prometheus", vmURL,
+		"--output", "json",
+	)
+	if err != nil {
+		t.Fatalf("scan (baseline): %v\n%s", err, baseOut)
+	}
+	var base struct {
+		Findings []struct {
+			Metric string `json:"metric"`
+		} `json:"findings"`
+	}
+	if err := json.Unmarshal([]byte(baseOut), &base); err != nil {
+		t.Fatalf("baseline JSON: %v\nout: %s", err, baseOut)
+	}
+	baselineCount := 0
+	for _, f := range base.Findings {
+		if f.Metric == "app_requests_total" {
+			baselineCount++
+		}
+	}
+	if baselineCount == 0 {
+		t.Skip("no app_requests_total findings in baseline scan; nothing to ignore")
+	}
+
+	// With --ignore-metric: app_requests_total dropped, ignored_count > 0.
+	out, err := runCmd(t, binPath(t), "scan",
+		"--prometheus", vmURL,
+		"--output", "json",
+		"--ignore-metric", "app_requests_total",
+	)
+	if err != nil {
+		t.Fatalf("scan (--ignore-metric): %v\n%s", err, out)
+	}
+	var rep struct {
+		IgnoredCount int `json:"ignored_count"`
+		Findings     []struct {
+			Metric string `json:"metric"`
+		} `json:"findings"`
+	}
+	if err := json.Unmarshal([]byte(out), &rep); err != nil {
+		t.Fatalf("unmarshal: %v\nout: %s", err, out)
+	}
+	if rep.IgnoredCount < 1 {
+		t.Errorf("ignored_count = %d, want >= 1", rep.IgnoredCount)
+	}
+	for _, f := range rep.Findings {
+		if f.Metric == "app_requests_total" {
+			t.Errorf("metric %q leaked despite --ignore-metric=app_requests_total", f.Metric)
+		}
+	}
+}

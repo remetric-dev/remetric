@@ -26,7 +26,8 @@
     <tr><th>Critical</th><td>{{index .Counts "critical"}}</td></tr>
     <tr><th>High</th><td>{{index .Counts "high"}}</td></tr>
     <tr><th>Medium</th><td>{{index .Counts "medium"}}</td></tr>
-    <tr><th>Low</th><td>{{index .Counts "low"}}</td></tr>
+    <tr><th>Low</th><td>{{index .Counts "low"}}</td></tr>{{if gt .IgnoredCount 0}}
+    <tr><th>Ignored</th><td>{{.IgnoredCount}}</td></tr>{{end}}
   </table>
 </section>
 

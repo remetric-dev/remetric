@@ -129,3 +129,31 @@ func TestFinding_AlwaysEmitsDescription(t *testing.T) {
 		t.Errorf("expected `description` field in output, got: %s", b)
 	}
 }
+
+func TestFinding_AlertJSONOmitEmpty(t *testing.T) {
+	// Finding without .Alert must NOT emit "alert" key.
+	f := Finding{ID: "x", Severity: SeverityLow, Category: CategoryCardinality, Title: "t", Evidence: Evidence{Description: "d"}}
+	b, err := json.Marshal(f)
+	if err != nil {
+		t.Fatalf("Marshal: %v", err)
+	}
+	if strings.Contains(string(b), `"alert"`) {
+		t.Errorf("Marshal output unexpectedly contains \"alert\" key: %s", b)
+	}
+}
+
+func TestFinding_AlertJSONRoundTrip(t *testing.T) {
+	// Finding with .Alert populated emits "alert": "Name".
+	f := Finding{
+		ID: "alert_hygiene/never_fired", Severity: SeverityMedium,
+		Category: CategoryAlertHygiene, Title: "t", Alert: "HighMemoryUsage",
+		Evidence: Evidence{Description: "d"},
+	}
+	b, err := json.Marshal(f)
+	if err != nil {
+		t.Fatalf("Marshal: %v", err)
+	}
+	if !strings.Contains(string(b), `"alert":"HighMemoryUsage"`) {
+		t.Errorf("expected alert key, got: %s", b)
+	}
+}

@@ -8,6 +8,7 @@ import (
 	"flag"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -134,6 +135,28 @@ func TestRenderLabelInventory_NilLabels(t *testing.T) {
 	}
 	if !bytes.Contains(buf.Bytes(), []byte(`"labels": []`)) {
 		t.Errorf("expected empty labels array, got:\n%s", buf.String())
+	}
+}
+
+func TestRenderFindings_JSON_EnvelopeIncludesIgnoredCount(t *testing.T) {
+	var buf bytes.Buffer
+	if err := New(&buf).RenderFindings([]findings.Finding{{ID: "x", Severity: findings.SeverityLow, Category: findings.CategoryCardinality, Title: "t"}}); err != nil {
+		t.Fatalf("RenderFindings: %v", err)
+	}
+	// Default envelope (RenderFindings without explicit ignored count)
+	// must NOT include "ignored_count" (signals "not configured").
+	if strings.Contains(buf.String(), `"ignored_count"`) {
+		t.Errorf("default envelope should omit ignored_count: %s", buf.String())
+	}
+}
+
+func TestRenderFindings_JSON_EnvelopeWithIgnoredCount(t *testing.T) {
+	var buf bytes.Buffer
+	if err := New(&buf).RenderFindingsWithIgnored([]findings.Finding{{ID: "x", Severity: findings.SeverityLow, Category: findings.CategoryCardinality, Title: "t"}}, 2); err != nil {
+		t.Fatalf("RenderFindingsWithIgnored: %v", err)
+	}
+	if !strings.Contains(buf.String(), `"ignored_count": 2`) {
+		t.Errorf("expected ignored_count:2 in envelope: %s", buf.String())
 	}
 }
 
