@@ -37,29 +37,55 @@ remetric scan --prometheus http://localhost:9090
 The terminal output looks like this:
 
 ```text
-SEVERITY  CLASS                 METRIC                 LABEL          FIX
-critical  hot-label             http_requests_total    user_id        labeldrop user_id
-high      unused-metric         go_memstats_alloc_old  -              drop_metric
-medium    never-firing-alert    HighRequestLatencyP99  -              relax threshold
-medium    label-pattern-overly  prometheus_http_*      trace_id       labeldrop trace_id
+▶ cardinality... done (120ms)
+▶ labelpattern... done (8ms)
+▶ unusedmetrics... done (35ms)
+▶ alerthygiene... done (4ms)
+┌──────────┬────────────────────┬──────────┬────────┬────────┬────────────────┐
+│ SEVERITY │ METRIC             │ LABEL    │ SERIES │ UNIQUE │ EST. REDUCTION │
+├──────────┼────────────────────┼──────────┼────────┼────────┼────────────────┤
+│ CRITICAL │ app_requests_total │ trace_id │ 500    │ 500    │ ~499           │
+│ MEDIUM   │                    │ user_id  │ 500    │ 500    │ ~499           │
+│ MEDIUM   │                    │ trace_id │ 500    │ 500    │ ~499           │
+└──────────┴────────────────────┴──────────┴────────┴────────┴────────────────┘
+
+[CRITICAL] app_requests_total  ·  trace_id has 500 unique values
+Sample: trace-001f71cef44a4aca, trace-006ce2eaa75c9f65, trace-007fff8ea657221b
+Estimated reduction (upper bound): 499 series
+
+Suggested fix (Prometheus scrape config):
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: "app_requests_total"
+        action: keep
+      - regex: "trace_id"
+        action: labeldrop
+Reference: https://remetric.dev/findings/hot-label
 ```
 
 ## Reading the report
 
-Every finding has the same shape:
+The output has three layers:
 
-- **Severity** - `critical`, `high`, `medium`, `low`. Computed from observed
-  series counts, uniqueness ratios, and lookback windows.
-- **Class** - a stable slug (e.g. `hot-label`) that identifies the type of
-  waste, independent of which entity triggered it. Each class has a dedicated
-  documentation page reachable from the report's `documentation_url`.
-- **Metric / Label / Alert** - the entity that triggered the finding.
-- **Fix** - a paste-ready `metric_relabel_configs` or rule-change snippet you
-  drop into your Prometheus config to make the waste go away.
+1. **Phase tracker** at the top - each analyzer logs when it starts and how
+   long it took. Useful for spotting a slow analyzer or a hung Prometheus.
+2. **Severity table** - at-a-glance ranking. Columns:
+    - `SEVERITY` - `CRITICAL` / `HIGH` / `MEDIUM` / `LOW`, computed from
+      observed series counts, uniqueness ratios, and lookback windows.
+    - `METRIC` / `LABEL` - the entity that triggered the finding.
+    - `SERIES` - total series in the metric.
+    - `UNIQUE` - unique values seen on the offending label.
+    - `EST. REDUCTION` - upper-bound series saved if you apply the fix.
+3. **Per-finding detail block** - for `CRITICAL` and `HIGH` rows the table is
+   followed by sample values, the exact reduction, a paste-ready fix snippet
+   for `prometheus.yml`, and a `Reference:` link to the documentation page
+   for that finding class.
 
 The same data is available in JSON via `--output json` (for CI), as a
 self-contained HTML report (`remetric report --format html --out report.html`),
-or as Markdown for PR comments (`--format markdown`).
+or as Markdown for PR comments (`--format markdown`). JSON and Markdown
+include the `documentation_url` for every finding so you can pipe scan results
+into tickets, Slack, or a dashboard with one-click links into this site.
 
 ## Next steps
 
