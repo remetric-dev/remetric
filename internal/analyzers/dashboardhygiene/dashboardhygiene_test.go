@@ -273,6 +273,57 @@ func TestAnalyzer_DistinctMissingMetricsEmitSeparateFindings(t *testing.T) {
 	}
 }
 
+func TestAnalyzer_TemplateVariableExprSkippedSilently(t *testing.T) {
+	promURL, grafURL := newStubs(t, stubsConfig{
+		IngestedNames: []string{"up"},
+		Dashboards: []dashboardStub{{
+			UID:   "d1",
+			Title: "Tmpl",
+			Body: `{"dashboard":{"uid":"d1","title":"Tmpl","panels":[
+				{"type":"graph","title":"P1","targets":[{"expr":"${metric_name}_total","datasource":{"type":"prometheus"}}]}
+			]}}`,
+		}},
+	})
+	pc, gc := mustClients(t, promURL, grafURL)
+
+	res, err := New().Analyze(context.Background(), analyzers.Deps{
+		Prom: pc, Graf: gc, Logger: slog.Default(), Limits: analyzers.DefaultLimits(),
+	})
+	if err != nil {
+		t.Fatalf("Analyze: %v", err)
+	}
+	if len(res.Findings) != 0 {
+		t.Errorf("Findings len = %d, want 0 (template-variable expr must skip silently)", len(res.Findings))
+	}
+	if len(res.Warnings) != 0 {
+		t.Errorf("Warnings = %v, want none (silent skip means no warning either)", res.Warnings)
+	}
+}
+
+func TestAnalyzer_NonPromDatasourceSkipped(t *testing.T) {
+	promURL, grafURL := newStubs(t, stubsConfig{
+		IngestedNames: []string{"up"},
+		Dashboards: []dashboardStub{{
+			UID:   "d1",
+			Title: "Loki",
+			Body: `{"dashboard":{"uid":"d1","title":"Loki","panels":[
+				{"type":"logs","title":"App logs","targets":[{"expr":"{job=\"app\"} |= \"error\"","datasource":{"type":"loki"}}]}
+			]}}`,
+		}},
+	})
+	pc, gc := mustClients(t, promURL, grafURL)
+
+	res, err := New().Analyze(context.Background(), analyzers.Deps{
+		Prom: pc, Graf: gc, Logger: slog.Default(), Limits: analyzers.DefaultLimits(),
+	})
+	if err != nil {
+		t.Fatalf("Analyze: %v", err)
+	}
+	if len(res.Findings) != 0 {
+		t.Errorf("Findings len = %d, want 0 (non-prom target should be filtered)", len(res.Findings))
+	}
+}
+
 func TestAnalyzer_RecordingRuleOutputCountsAsExisting(t *testing.T) {
 	promURL, grafURL := newStubs(t, stubsConfig{
 		IngestedNames: []string{"up"}, // freshly_recorded_metric not in head yet
