@@ -70,21 +70,30 @@ func filterAtLeast(fs []findings.Finding, min findings.Severity) []findings.Find
 // JSON output ignores the empty-state copy entirely and emits the
 // standard `{"findings": [], "summary": ...}` envelope so machine
 // consumers see a stable wire contract.
+//
+// ignored is the number of findings dropped by --ignore-* patterns. For
+// terminal output a footer line is appended when non-zero. For JSON the
+// envelope carries `ignored_count` via RenderFindingsWithIgnored.
 func renderEmpty(cfg *config.Config, w io.Writer, c emptyCopy,
 	minSev findings.Severity, totalCount int, bySev map[findings.Severity]int,
+	ignored int,
 ) error {
 	switch cfg.Output {
 	case "", "terminal":
 		if totalCount == 0 {
-			_, err := fmt.Fprintln(w, c.NoResults+" Run `remetric doctor` to verify the connection.")
+			if _, err := fmt.Fprintln(w, c.NoResults+" Run `remetric doctor` to verify the connection."); err != nil {
+				return err
+			}
+			return writeTerminalIgnored(w, ignored)
+		}
+		if _, err := fmt.Fprintf(w,
+			"Filtered %d %s below %s severity: %s. Try `--min-severity low` to see them all.\n",
+			totalCount, c.Subject, strings.ToLower(minSev.String()), formatSeverityCounts(bySev)); err != nil {
 			return err
 		}
-		_, err := fmt.Fprintf(w,
-			"Filtered %d %s below %s severity: %s. Try `--min-severity low` to see them all.\n",
-			totalCount, c.Subject, strings.ToLower(minSev.String()), formatSeverityCounts(bySev))
-		return err
+		return writeTerminalIgnored(w, ignored)
 	case "json":
-		return outjson.New(w).RenderFindings(nil)
+		return outjson.New(w).RenderFindingsWithIgnored(nil, ignored)
 	default:
 		return fmt.Errorf("unsupported --output %q (want terminal|json)", cfg.Output)
 	}

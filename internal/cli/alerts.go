@@ -99,6 +99,7 @@ func newAlertsByClassCmd(use, classSuffix, short string) *cobra.Command {
 					classScoped = append(classScoped, f)
 				}
 			}
+			classScoped, ignored := cfg.IgnoreFilter().Apply(classScoped)
 
 			filtered := make([]findings.Finding, 0, len(classScoped))
 			for _, f := range classScoped {
@@ -113,16 +114,16 @@ func newAlertsByClassCmd(use, classSuffix, short string) *cobra.Command {
 				return filtered[i].Title < filtered[j].Title
 			})
 			if len(filtered) == 0 {
-				return renderEmpty(cfg, cmd.OutOrStdout(), alertsCopy(use), minSev, len(classScoped), tallyBySeverity(classScoped))
+				return renderEmpty(cfg, cmd.OutOrStdout(), alertsCopy(use), minSev, len(classScoped), tallyBySeverity(classScoped), ignored)
 			}
 			if limit >= 0 && len(filtered) > limit {
 				filtered = filtered[:limit]
 			}
 			if len(filtered) == 0 {
 				// Limit truncated everything to zero - show the "no results" copy, not the severity hint.
-				return renderEmpty(cfg, cmd.OutOrStdout(), alertsCopy(use), minSev, 0, nil)
+				return renderEmpty(cfg, cmd.OutOrStdout(), alertsCopy(use), minSev, 0, nil, ignored)
 			}
-			if err := renderFindings(cfg, cmd.OutOrStdout(), filtered, 0); err != nil {
+			if err := renderFindings(cfg, cmd.OutOrStdout(), filtered, ignored); err != nil {
 				return err
 			}
 			sev, enabled := cfg.FailOnThreshold()

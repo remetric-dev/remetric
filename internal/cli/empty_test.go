@@ -86,7 +86,7 @@ func TestEmptyCopy_Values(t *testing.T) {
 func TestRenderEmpty_Terminal_NoResults(t *testing.T) {
 	var buf bytes.Buffer
 	cfg := &config.Config{Output: "terminal", NoColor: true}
-	err := renderEmpty(cfg, &buf, cardinalityCopy, findings.SeverityMedium, 0, nil)
+	err := renderEmpty(cfg, &buf, cardinalityCopy, findings.SeverityMedium, 0, nil, 0)
 	if err != nil {
 		t.Fatalf("renderEmpty: %v", err)
 	}
@@ -106,7 +106,7 @@ func TestRenderEmpty_Terminal_AllFiltered(t *testing.T) {
 		findings.SeverityLow:    3,
 		findings.SeverityMedium: 2,
 	}
-	err := renderEmpty(cfg, &buf, cardinalityCopy, findings.SeverityHigh, 5, bySev)
+	err := renderEmpty(cfg, &buf, cardinalityCopy, findings.SeverityHigh, 5, bySev, 0)
 	if err != nil {
 		t.Fatalf("renderEmpty: %v", err)
 	}
@@ -128,7 +128,7 @@ func TestRenderEmpty_Terminal_LabelPatternSubject(t *testing.T) {
 	var buf bytes.Buffer
 	cfg := &config.Config{Output: "terminal", NoColor: true}
 	bySev := map[findings.Severity]int{findings.SeverityLow: 1}
-	err := renderEmpty(cfg, &buf, labelPatternCopy, findings.SeverityMedium, 1, bySev)
+	err := renderEmpty(cfg, &buf, labelPatternCopy, findings.SeverityMedium, 1, bySev, 0)
 	if err != nil {
 		t.Fatalf("renderEmpty: %v", err)
 	}
@@ -140,7 +140,7 @@ func TestRenderEmpty_Terminal_LabelPatternSubject(t *testing.T) {
 func TestRenderEmpty_JSON_NoResults(t *testing.T) {
 	var buf bytes.Buffer
 	cfg := &config.Config{Output: "json"}
-	err := renderEmpty(cfg, &buf, cardinalityCopy, findings.SeverityMedium, 0, nil)
+	err := renderEmpty(cfg, &buf, cardinalityCopy, findings.SeverityMedium, 0, nil, 0)
 	if err != nil {
 		t.Fatalf("renderEmpty: %v", err)
 	}
@@ -153,11 +153,35 @@ func TestRenderEmpty_JSON_AllFiltered(t *testing.T) {
 	var buf bytes.Buffer
 	cfg := &config.Config{Output: "json"}
 	bySev := map[findings.Severity]int{findings.SeverityLow: 3}
-	err := renderEmpty(cfg, &buf, cardinalityCopy, findings.SeverityHigh, 3, bySev)
+	err := renderEmpty(cfg, &buf, cardinalityCopy, findings.SeverityHigh, 3, bySev, 0)
 	if err != nil {
 		t.Fatalf("renderEmpty: %v", err)
 	}
 	if !strings.Contains(buf.String(), `"findings": []`) {
 		t.Errorf("expected empty findings envelope, got:\n%s", buf.String())
+	}
+}
+
+func TestRenderEmpty_Terminal_AppendsIgnoredFooter(t *testing.T) {
+	var buf bytes.Buffer
+	cfg := &config.Config{Output: "terminal", NoColor: true}
+	err := renderEmpty(cfg, &buf, cardinalityCopy, findings.SeverityMedium, 0, nil, 2)
+	if err != nil {
+		t.Fatalf("renderEmpty: %v", err)
+	}
+	if !strings.Contains(buf.String(), "ignored: 2 findings") {
+		t.Errorf("expected ignored footer in terminal empty output, got:\n%s", buf.String())
+	}
+}
+
+func TestRenderEmpty_JSON_EmitsIgnoredCount(t *testing.T) {
+	var buf bytes.Buffer
+	cfg := &config.Config{Output: "json"}
+	err := renderEmpty(cfg, &buf, cardinalityCopy, findings.SeverityMedium, 0, nil, 4)
+	if err != nil {
+		t.Fatalf("renderEmpty: %v", err)
+	}
+	if !strings.Contains(buf.String(), `"ignored_count": 4`) {
+		t.Errorf("expected ignored_count in JSON empty envelope, got:\n%s", buf.String())
 	}
 }
