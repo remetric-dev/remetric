@@ -57,6 +57,24 @@ GitHub Releases ship signed tarballs and a `checksums.txt`. See
 
 ## 60-second quickstart
 
+Two paths, depending on what you have:
+
+**Option A - all-in-one demo (Docker only).** Spins up a synthetic stack
+(Prometheus + Grafana + a misbehaving metric) and writes an HTML report:
+
+```bash
+git clone https://github.com/remetric-dev/remetric
+cd remetric/demo
+docker compose up
+# wait ~45s, then:
+open output/report.html      # macOS
+xdg-open output/report.html  # Linux
+```
+
+See [`demo/README.md`](demo/README.md) for what's in the stack and how to poke at it.
+
+**Option B - local binary against an e2e stack.**
+
 ```bash
 git clone https://github.com/remetric-dev/remetric
 cd remetric
