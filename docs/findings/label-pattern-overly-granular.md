@@ -16,7 +16,7 @@ not (only) by current cardinality, so you catch the explosion before it gets
 critical.
 
 This class is a leading indicator for [hot-label](hot-label.md) findings.
-Catching an `request_id` label at 500 unique values and labeldropping it now
+Catching a `request_id` label at 500 unique values and labeldropping it now
 is cheaper than discovering it at five million values during an incident.
 
 ## How remetric detects it

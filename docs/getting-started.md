@@ -36,7 +36,7 @@ remetric scan --prometheus http://localhost:9090
 
 The terminal output looks like this:
 
-```
+```text
 SEVERITY  CLASS                 METRIC                 LABEL          FIX
 critical  hot-label             http_requests_total    user_id        labeldrop user_id
 high      unused-metric         go_memstats_alloc_old  -              drop_metric
