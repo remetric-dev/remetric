@@ -19,6 +19,11 @@ import (
 	"github.com/remetric-dev/remetric/internal/promqlx"
 )
 
+// maxSamplePanelTitles is the upper bound on Evidence.SampleValues
+// per broken-panel finding. Beyond this, panel titles are listed
+// only in the Fix snippet, not as structured evidence.
+const maxSamplePanelTitles = 5
+
 // Analyzer is the dashboard-hygiene analyzer (broken panels).
 type Analyzer struct{}
 
@@ -96,17 +101,27 @@ func (a *Analyzer) Analyze(ctx context.Context, d analyzers.Deps) (analyzers.Res
 	for k, agg := range groups {
 		out = append(out, buildFinding(k.uid, k.metric, *agg))
 	}
-	sort.SliceStable(out, func(i, j int) bool {
-		if out[i].Severity != out[j].Severity {
-			return out[i].Severity > out[j].Severity
-		}
-		ni, nj := len(out[i].Evidence.SampleValues), len(out[j].Evidence.SampleValues)
-		if ni != nj {
-			return ni > nj
-		}
-		return out[i].Metric < out[j].Metric
-	})
+	sort.SliceStable(out, func(i, j int) bool { return findingLess(out[i], out[j]) })
 	return analyzers.Result{Findings: out, Warnings: warnings}, nil
+}
+
+// findingLess orders broken-panel findings deterministically by
+// severity (desc), sample-count (desc), dashboard (asc), metric (asc).
+// The Dashboard tiebreaker is required because two findings can share
+// (severity, sample-count, metric) when different dashboards reference
+// the same missing metric.
+func findingLess(a, b findings.Finding) bool {
+	if a.Severity != b.Severity {
+		return a.Severity > b.Severity
+	}
+	na, nb := len(a.Evidence.SampleValues), len(b.Evidence.SampleValues)
+	if na != nb {
+		return na > nb
+	}
+	if a.Dashboard != b.Dashboard {
+		return a.Dashboard < b.Dashboard
+	}
+	return a.Metric < b.Metric
 }
 
 // absoluteDashboardURL joins the Grafana base URL with the relative
@@ -127,29 +142,29 @@ func absoluteDashboardURL(c *grafana.Client, rel string) string {
 }
 
 // buildFinding renders one Finding for a (dashboard, missing-metric) pair.
-func buildFinding(uid, missing string, a dashAgg) findings.Finding {
-	n := len(a.panelTitles)
-	sample := a.panelTitles
-	if n > 5 {
-		sample = sample[:5]
+func buildFinding(uid, missing string, agg dashAgg) findings.Finding {
+	n := len(agg.panelTitles)
+	sample := agg.panelTitles
+	if n > maxSamplePanelTitles {
+		sample = sample[:maxSamplePanelTitles]
 	}
 	return findings.Finding{
 		ID:        "broken-panel:" + uid + ":" + missing,
 		Severity:  findings.SeverityMedium,
 		Category:  findings.CategoryDashboardHygiene,
 		Class:     findings.ClassBrokenPanel,
-		Title:     fmt.Sprintf("dashboard %q references missing metric %q", a.dashTitle, missing),
+		Title:     fmt.Sprintf("dashboard %q references missing metric %q", agg.dashTitle, missing),
 		Metric:    missing,
-		Dashboard: a.dashTitle,
+		Dashboard: agg.dashTitle,
 		Evidence: findings.Evidence{
 			Description: fmt.Sprintf(
 				"%d panel(s) in dashboard %q query %q which is not present in head series or recording-rule outputs",
-				n, a.dashTitle, missing),
+				n, agg.dashTitle, missing),
 			SampleValues: sample,
 		},
 		Fix: findings.Fix{
 			Type:   "edit_dashboard",
-			Config: buildFix(a.dashTitle, missing, a.dashURL, a.panelTitles),
+			Config: buildFix(agg.dashTitle, missing, agg.dashURL, agg.panelTitles),
 		},
 		Impact: findings.Impact{
 			EstimationMethod: "broken_panel",
