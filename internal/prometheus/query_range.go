@@ -29,6 +29,10 @@ type Series struct {
 // SamplePair is a single (timestamp, value) point. JSON form is a two-element
 // array [unix_seconds_float, "value_string"]. Timestamps decode at millisecond
 // precision to match Prometheus's underlying model.Time representation.
+//
+// Current consumers (alerthygiene/classify) ignore Timestamp and read only
+// Value. The field is preserved on the public type so a future gap-detection
+// or stale-metric analyzer (post-v0.1) can use it without an API break.
 type SamplePair struct {
 	Timestamp time.Time
 	Value     float64
