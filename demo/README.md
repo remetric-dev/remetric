@@ -90,3 +90,18 @@ remetric report \
   (fewer scrape cycles, fewer findings).
 - **Different report format.** Change `--format=html` to `markdown` or `json`
   and update the `--out` extension accordingly.
+
+## Regenerating the README GIF
+
+The README animation [`remetric.gif`](remetric.gif) is rendered from
+[`recording.tape`](recording.tape) via [vhs](https://github.com/charmbracelet/vhs).
+
+```bash
+brew install vhs ffmpeg                              # one-time
+make build                                           # produces ./bin/remetric
+cd demo && docker compose up -d && sleep 45 && cd .. # stack must be live + scraped
+PATH="$PWD/bin:$PATH" vhs demo/recording.tape        # writes demo/remetric.gif
+```
+
+Both the `.tape` script and the rendered `.gif` are committed so the recording
+is deterministic - edit the tape, re-run, the gif regenerates byte-for-byte.

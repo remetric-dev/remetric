@@ -10,6 +10,12 @@ problems with suggested `metric_relabel_configs` fixes.
 > alert-hygiene analyzers are wired up. JSON output, Grafana integration,
 > unified `remetric scan`, and HTML/Markdown reports shipped.
 
+![remetric demo](demo/remetric.gif)
+
+The demo above runs against the [`demo/`](demo/) docker-compose stack
+(Prometheus + Grafana + a deliberately misbehaving `cardinality-bomb`
+service). Reproduce with `cd demo && docker compose up -d`.
+
 ## Install
 
 ### One-line install
