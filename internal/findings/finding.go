@@ -17,17 +17,18 @@ const (
 
 // Finding is a single piece of feedback produced by an analyzer.
 type Finding struct {
-	ID       string   `json:"id"`
-	Severity Severity `json:"severity"`
-	Category Category `json:"category"`
-	Class    Class    `json:"class,omitempty"`
-	Title    string   `json:"title"`
-	Metric   string   `json:"metric,omitempty"`
-	Alert    string   `json:"alert,omitempty"`
-	Evidence Evidence `json:"evidence"`
-	Fix      Fix      `json:"fix"`
-	Impact   Impact   `json:"impact"`
-	DocURL   string   `json:"documentation_url,omitempty"`
+	ID        string   `json:"id"`
+	Severity  Severity `json:"severity"`
+	Category  Category `json:"category"`
+	Class     Class    `json:"class,omitempty"`
+	Title     string   `json:"title"`
+	Metric    string   `json:"metric,omitempty"`
+	Alert     string   `json:"alert,omitempty"`
+	Dashboard string   `json:"dashboard,omitempty"`
+	Evidence  Evidence `json:"evidence"`
+	Fix       Fix      `json:"fix"`
+	Impact    Impact   `json:"impact"`
+	DocURL    string   `json:"documentation_url,omitempty"`
 }
 
 // Evidence describes the observation that triggered a finding.

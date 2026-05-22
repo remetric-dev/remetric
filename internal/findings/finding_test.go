@@ -157,3 +157,37 @@ func TestFinding_AlertJSONRoundTrip(t *testing.T) {
 		t.Errorf("expected alert key, got: %s", b)
 	}
 }
+
+func TestFinding_DashboardField_OmitEmptyOnNonDashboardFindings(t *testing.T) {
+	f := Finding{
+		ID:       "x",
+		Severity: SeverityMedium,
+		Category: CategoryCardinality,
+		Title:    "t",
+		Metric:   "m",
+	}
+	b, err := json.Marshal(f)
+	if err != nil {
+		t.Fatalf("Marshal: %v", err)
+	}
+	if strings.Contains(string(b), `"dashboard"`) {
+		t.Errorf("empty Dashboard should be omitted from JSON; got: %s", string(b))
+	}
+}
+
+func TestFinding_DashboardField_PresentWhenSet(t *testing.T) {
+	f := Finding{
+		ID:        "x",
+		Severity:  SeverityMedium,
+		Category:  CategoryDashboardHygiene,
+		Title:     "t",
+		Dashboard: "Frontend SLOs",
+	}
+	b, err := json.Marshal(f)
+	if err != nil {
+		t.Fatalf("Marshal: %v", err)
+	}
+	if !strings.Contains(string(b), `"dashboard":"Frontend SLOs"`) {
+		t.Errorf("Dashboard not in JSON output: %s", string(b))
+	}
+}
