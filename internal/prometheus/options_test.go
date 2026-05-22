@@ -53,3 +53,23 @@ func TestOptions_Apply(t *testing.T) {
 		t.Errorf("logger not stored")
 	}
 }
+
+func TestWithMaxInFlight_GetterExposesValue(t *testing.T) {
+	c, err := New("http://example.invalid", WithMaxInFlight(12))
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	if got := c.MaxInFlight(); got != 12 {
+		t.Errorf("c.MaxInFlight() = %d, want 12", got)
+	}
+}
+
+func TestMaxInFlight_DefaultsToFive(t *testing.T) {
+	c, err := New("http://example.invalid")
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	if got := c.MaxInFlight(); got != 5 {
+		t.Errorf("c.MaxInFlight() = %d, want 5", got)
+	}
+}

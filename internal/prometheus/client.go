@@ -101,6 +101,11 @@ func New(rawURL string, opts ...Option) (*Client, error) {
 	return c, nil
 }
 
+// MaxInFlight returns the concurrency bound configured via WithMaxInFlight.
+// Default is 5. Useful for callers that fan out work and want to size their
+// own goroutine pool to match the client's network bound.
+func (c *Client) MaxInFlight() int { return c.maxInFlight }
+
 // slogLogger adapts *slog.Logger to retryablehttp.LeveledLogger.
 type slogLogger struct{ *slog.Logger }
 
