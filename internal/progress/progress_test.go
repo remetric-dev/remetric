@@ -38,7 +38,7 @@ func TestLineReporter_DoneSingularWarning(t *testing.T) {
 	r.Start("unusedmetrics")
 	r.Done("unusedmetrics", 287*time.Millisecond, 1)
 	if got := buf.String(); !strings.Contains(got, "1 warning)") {
-		t.Errorf("buf = %q, want singular ‘1 warning’", got)
+		t.Errorf("buf = %q, want singular '1 warning'", got)
 	}
 	if got := buf.String(); strings.Contains(got, "1 warnings") {
 		t.Errorf("buf = %q, should not pluralise on count=1", got)
@@ -51,7 +51,7 @@ func TestLineReporter_DonePluralWarnings(t *testing.T) {
 	r.Start("alerthygiene")
 	r.Done("alerthygiene", 2*time.Second, 3)
 	if got := buf.String(); !strings.Contains(got, "3 warnings)") {
-		t.Errorf("buf = %q, want plural ‘3 warnings’", got)
+		t.Errorf("buf = %q, want plural '3 warnings'", got)
 	}
 }
 

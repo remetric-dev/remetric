@@ -389,7 +389,7 @@ func TestAlertHygiene_NotSupportedAborts(t *testing.T) {
 		t.Errorf("len(findings) = %d, want 0", len(res.Findings))
 	}
 	if len(res.Warnings) != 1 || !strings.Contains(res.Warnings[0], "query_range not supported") {
-		t.Errorf("warnings = %v, want one ‘query_range not supported’ warning", res.Warnings)
+		t.Errorf("warnings = %v, want one 'query_range not supported' warning", res.Warnings)
 	}
 }
 
@@ -437,6 +437,6 @@ func TestAlertHygiene_PartialFailures(t *testing.T) {
 		t.Errorf("len(findings) = %d, want 7", got)
 	}
 	if len(res.Warnings) != 1 || !strings.Contains(res.Warnings[0], "skipped 3 alerts") {
-		t.Errorf("warnings = %v, want one ‘skipped 3 alerts’ warning", res.Warnings)
+		t.Errorf("warnings = %v, want one 'skipped 3 alerts' warning", res.Warnings)
 	}
 }
