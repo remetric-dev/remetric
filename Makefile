@@ -9,7 +9,7 @@ LOCAL_PREFIX     := github.com/remetric-dev/remetric
 VERSION          ?= $(shell git describe --tags --dirty --always 2>/dev/null || echo dev)
 LDFLAGS          := -s -w -X main.version=$(VERSION)
 
-.PHONY: help build test test-race cover fmt vet lint vuln clean e2e-up e2e-down e2e e2e-vm-up e2e-vm-down e2e-vm e2e-alerts release-check release-snapshot docker-build install-check
+.PHONY: help build test test-race cover fmt vet lint vuln clean e2e-up e2e-down e2e e2e-vm-up e2e-vm-down e2e-vm e2e-alerts release-check release-snapshot docker-build install-check go-work
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*## / {printf "  %-14s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -93,6 +93,16 @@ DOCKER_IMAGE ?= remetric:dev
 
 docker-build: ## Build docker image (single-arch, host CPU)
 	docker build --build-arg VERSION=$(VERSION) -t $(DOCKER_IMAGE) .
+
+go-work: ## Create/update go.work so gopls finds modules in active worktrees
+	@# go.work is .gitignored - this target is purely for editor tooling
+	@# (gopls). When working from .claude/worktrees/<name>/, gopls otherwise
+	@# logs "This file is within module ../<name>, which is not included in
+	@# your workspace". The build itself never reads go.work.
+	@if [ ! -f go.work ]; then $(GO) work init; fi
+	@$(GO) work use . $$(ls -d .claude/worktrees/*/ 2>/dev/null) >/dev/null
+	@echo ">> go.work updated. Modules:"
+	@$(GO) work edit -json | python3 -c "import sys,json;d=json.load(sys.stdin);print('\n'.join(' - '+u['DiskPath'] for u in d.get('Use',[])))" 2>/dev/null || cat go.work
 
 install-check: ## Lint install.sh with shellcheck if installed
 	@if command -v shellcheck >/dev/null 2>&1; then \
