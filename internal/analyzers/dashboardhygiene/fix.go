@@ -6,6 +6,8 @@ package dashboardhygiene
 import (
 	"fmt"
 	"strings"
+
+	"github.com/remetric-dev/remetric/internal/findings"
 )
 
 // buildFix renders a paste-ready instruction block for a single
@@ -25,17 +27,14 @@ func buildFix(dashTitle, missing, dashURL string, panelTitles []string) string {
 	fmt.Fprintf(&b, "  1. Restore metric %q (re-enable the scrape job or recording rule), or\n", missing)
 	b.WriteString("  2. Remove/replace the broken queries in panel(s):\n")
 	n := len(panelTitles)
-	limit := n
-	if limit > maxFixPanels {
-		limit = maxFixPanels
-	}
-	for i := 0; i < limit; i++ {
-		fmt.Fprintf(&b, "     - %s\n", panelTitles[i])
+	limit := min(n, maxFixPanels)
+	for _, title := range panelTitles[:limit] {
+		fmt.Fprintf(&b, "     - %s\n", title)
 	}
 	if n > maxFixPanels {
 		fmt.Fprintf(&b, "     ... and %d more\n", n-maxFixPanels)
 	}
-	b.WriteString("Reference: https://remetric.dev/findings/broken-panel")
+	b.WriteString("Reference: " + findings.DocURL(findings.ClassBrokenPanel))
 	return b.String()
 }
 
