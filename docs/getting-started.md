@@ -37,20 +37,21 @@ remetric scan --prometheus http://localhost:9090
 The terminal output looks like this:
 
 ```text
-▶ cardinality... done (120ms)
-▶ labelpattern... done (8ms)
-▶ unusedmetrics... done (35ms)
-▶ alerthygiene... done (4ms)
+▸ cardinality... done (118ms)
+▸ labelpattern... done (8ms)
+▸ unusedmetrics... done (13ms)
+▸ alerthygiene... done (7ms)
 ┌──────────┬────────────────────┬──────────┬────────┬────────┬────────────────┐
 │ SEVERITY │ METRIC             │ LABEL    │ SERIES │ UNIQUE │ EST. REDUCTION │
 ├──────────┼────────────────────┼──────────┼────────┼────────┼────────────────┤
 │ CRITICAL │ app_requests_total │ trace_id │ 500    │ 500    │ ~499           │
 │ MEDIUM   │                    │ user_id  │ 500    │ 500    │ ~499           │
 │ MEDIUM   │                    │ trace_id │ 500    │ 500    │ ~499           │
+│ MEDIUM   │                    │          │ 0      │ 0      │ ~0             │
 └──────────┴────────────────────┴──────────┴────────┴────────┴────────────────┘
 
 [CRITICAL] app_requests_total  ·  trace_id has 500 unique values
-Sample: trace-001f71cef44a4aca, trace-006ce2eaa75c9f65, trace-007fff8ea657221b
+Sample: trace-001f71cef44a4aca, trace-006ce2eaa75c9f65, trace-007fff8ea657221b, trace-0102b61d60431cf5, trace-0116b64ca9b86791
 Estimated reduction (upper bound): 499 series
 
 Suggested fix (Prometheus scrape config):
