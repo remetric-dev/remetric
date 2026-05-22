@@ -22,6 +22,7 @@ type Finding struct {
 	Category Category `json:"category"`
 	Title    string   `json:"title"`
 	Metric   string   `json:"metric,omitempty"`
+	Alert    string   `json:"alert,omitempty"`
 	Evidence Evidence `json:"evidence"`
 	Fix      Fix      `json:"fix"`
 	Impact   Impact   `json:"impact"`
