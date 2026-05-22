@@ -34,10 +34,10 @@ Sleep 300ms
 Type "# Suppress known noise with --ignore-metric (regex, repeatable):"
 Enter
 Sleep 700ms
-Type "remetric scan --prometheus http://localhost:9091 --grafana http://localhost:3001 --ignore-metric='node_.*' --ignore-metric='prometheus_.*' --min-severity low | tail -8"
+Type "remetric scan --prometheus http://localhost:9091 --grafana http://localhost:3001 --ignore-metric='node_.*' --ignore-metric='prometheus_.*' --min-severity medium"
 Sleep 600ms
 Enter
-Sleep 9s
+Sleep 10s
 
 # Frame 3: machine-readable JSON for CI / dashboards
 Hide
