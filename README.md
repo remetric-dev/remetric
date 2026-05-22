@@ -21,7 +21,7 @@ service). Reproduce with `cd demo && docker compose up -d`.
 ### One-line install
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/remetric-dev/remetric/main/install.sh | sh
+curl -sSL https://remetric.dev/install.sh | sh
 ```
 
 Installs the latest release into `$HOME/.local/bin`. Override with
