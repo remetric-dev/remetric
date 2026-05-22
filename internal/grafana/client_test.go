@@ -83,3 +83,23 @@ func TestDo_ReturnsErrNotFoundOn404(t *testing.T) {
 		t.Errorf("err = %v, want ErrNotFound", err)
 	}
 }
+
+func TestClient_BaseURL_ReturnsAbsoluteCopy(t *testing.T) {
+	c, err := New("https://grafana.example.com/sub/")
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	u := c.BaseURL()
+	if u == nil {
+		t.Fatal("BaseURL returned nil")
+	}
+	if u.Scheme != "https" || u.Host != "grafana.example.com" || u.Path != "/sub/" {
+		t.Errorf("BaseURL = %+v, want https://grafana.example.com/sub/", u)
+	}
+	// Caller mutation must not affect the client.
+	u.Path = "/mutated"
+	again := c.BaseURL()
+	if again.Path != "/sub/" {
+		t.Errorf("BaseURL after caller mutation = %q, want /sub/ (defensive copy)", again.Path)
+	}
+}
