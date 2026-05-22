@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"sort"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -355,5 +356,136 @@ func TestAnalyzer_RecordingRuleOutputCountsAsExisting(t *testing.T) {
 	if res.Findings[0].Metric != "AlertA" {
 		t.Errorf("Finding Metric = %q, want %q (proves type filter held: RR output added, alert name not added)",
 			res.Findings[0].Metric, "AlertA")
+	}
+}
+
+func TestAnalyzer_PerDashboardFetchErrorDegrades(t *testing.T) {
+	// Two dashboards: d1 returns 500, d2 returns a valid body with a broken panel.
+	// Per-dashboard fetch failures should append a warning and the analyzer
+	// must continue processing remaining dashboards.
+	promURL, grafURL := newStubs(t, stubsConfig{
+		IngestedNames: []string{"up"},
+		GrafHandler: func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			switch r.URL.Path {
+			case "/api/search":
+				_ = json.NewEncoder(w).Encode([]map[string]any{
+					{"uid": "d1", "title": "Broken Fetch"},
+					{"uid": "d2", "title": "OK"},
+				})
+			case "/api/dashboards/uid/d1":
+				w.WriteHeader(http.StatusInternalServerError)
+			case "/api/dashboards/uid/d2":
+				_, _ = w.Write([]byte(`{"dashboard":{"uid":"d2","title":"OK","panels":[
+					{"type":"graph","title":"P","targets":[{"expr":"missing_xyz","datasource":{"type":"prometheus"}}]}
+				]}}`))
+			default:
+				http.NotFound(w, r)
+			}
+		},
+	})
+	pc, gc := mustClients(t, promURL, grafURL)
+
+	res, err := New().Analyze(context.Background(), analyzers.Deps{
+		Prom: pc, Graf: gc, Logger: slog.Default(), Limits: analyzers.DefaultLimits(),
+	})
+	if err != nil {
+		t.Fatalf("Analyze: %v (should degrade, not fail)", err)
+	}
+	if len(res.Findings) != 1 || res.Findings[0].Metric != "missing_xyz" {
+		t.Errorf("Findings = %+v; want one finding for d2", res.Findings)
+	}
+	if len(res.Warnings) != 1 {
+		t.Fatalf("Warnings len = %d, want 1; got %v", len(res.Warnings), res.Warnings)
+	}
+	if !strings.Contains(res.Warnings[0], `dashboard "d1"`) {
+		t.Errorf("warning %q should mention d1", res.Warnings[0])
+	}
+}
+
+func TestAnalyzer_SearchErrorIsFatal(t *testing.T) {
+	// Grafana /api/search 500 is unrecoverable: without the dashboard
+	// list there is nothing for the analyzer to walk. Must wrap and return.
+	promURL, grafURL := newStubs(t, stubsConfig{
+		IngestedNames: []string{"up"},
+		GrafHandler: func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusInternalServerError)
+		},
+	})
+	pc, gc := mustClients(t, promURL, grafURL)
+
+	_, err := New().Analyze(context.Background(), analyzers.Deps{
+		Prom: pc, Graf: gc, Logger: slog.Default(), Limits: analyzers.DefaultLimits(),
+	})
+	if err == nil {
+		t.Fatal("Analyze returned nil error; Search() 500 should be fatal")
+	}
+	if !strings.Contains(err.Error(), "grafana search") {
+		t.Errorf("error %q should mention grafana search", err.Error())
+	}
+}
+
+func TestAnalyzer_VictoriaMetricsWithoutVMAlertWarns(t *testing.T) {
+	// VictoriaMetrics single-node serves /api/v1/rules but the payload
+	// is incomplete without --vmalert. collectRecordingOutputs returns
+	// errRulesUnavailable, which Analyze converts to the "rules unavailable"
+	// warning. The dashboard walk still runs.
+	//
+	// Mirrors unusedmetrics' TestAnalyzer_VictoriaWithoutVMAlert_WarnsAndContinues:
+	// force the flavor with WithFlavorHint(FlavorVictoria) rather than relying
+	// on buildinfo auto-detection. Build the prom client inline so the shared
+	// mustClients helper (which hints FlavorProm) is unaffected.
+	prom := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api/v1/label/__name__/values":
+			_, _ = w.Write([]byte(`{"status":"success","data":["up"]}`))
+		case "/api/v1/rules":
+			_, _ = w.Write([]byte(`{"status":"success","data":{"groups":[]}}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(prom.Close)
+
+	graf := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api/search":
+			_ = json.NewEncoder(w).Encode([]map[string]any{{"uid": "d1", "title": "VM"}})
+		case "/api/dashboards/uid/d1":
+			_, _ = w.Write([]byte(`{"dashboard":{"uid":"d1","title":"VM","panels":[
+				{"type":"graph","title":"P","targets":[{"expr":"up","datasource":{"type":"prometheus"}}]}
+			]}}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(graf.Close)
+
+	pc, err := prometheus.New(prom.URL, prometheus.WithFlavorHint(prometheus.FlavorVictoria))
+	if err != nil {
+		t.Fatalf("prometheus.New: %v", err)
+	}
+	gc, err := grafana.New(graf.URL)
+	if err != nil {
+		t.Fatalf("grafana.New: %v", err)
+	}
+
+	res, err := New().Analyze(context.Background(), analyzers.Deps{
+		Prom: pc, Graf: gc, Logger: slog.Default(), Limits: analyzers.DefaultLimits(),
+	})
+	if err != nil {
+		t.Fatalf("Analyze: %v", err)
+	}
+	found := false
+	for _, w := range res.Warnings {
+		if strings.Contains(w, "rules unavailable") && strings.Contains(w, "VictoriaMetrics") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected VM-without-vmalert warning; got %v", res.Warnings)
 	}
 }
