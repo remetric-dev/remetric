@@ -14,6 +14,9 @@ coverage.txt
 # goreleaser output
 /dist/
 
+# MkDocs build output
+/site/
+
 # Go workspace files
 go.work
 go.work.sum

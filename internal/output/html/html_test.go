@@ -141,3 +141,54 @@ func TestRenderReport_HTML_IgnoredCountZeroHidden(t *testing.T) {
 		t.Errorf("IgnoredCount=0 should be hidden: %s", buf.String())
 	}
 }
+
+func TestRenderReport_HTML_DocURLLink(t *testing.T) {
+	rep := &findings.Report{
+		Version:   "v0.1.0",
+		ScannedAt: time.Date(2026, 5, 22, 0, 0, 0, 0, time.UTC),
+		Findings: []findings.Finding{
+			{
+				ID:       "cardinality/hot_label",
+				Severity: findings.SeverityCritical,
+				Category: findings.CategoryCardinality,
+				Class:    findings.ClassHotLabel,
+				DocURL:   "https://remetric.dev/findings/hot-label",
+				Title:    "http_requests_total: 250k series",
+				Evidence: findings.Evidence{Description: "user_id is unbounded"},
+			},
+		},
+		Summary: findings.Summary{BySeverity: map[string]int{"critical": 1}},
+	}
+	var buf bytes.Buffer
+	if err := html.New(&buf).RenderReport(rep); err != nil {
+		t.Fatalf("RenderReport: %v", err)
+	}
+	want := `href="https://remetric.dev/findings/hot-label"`
+	if !strings.Contains(buf.String(), want) {
+		t.Errorf("output missing %q, got:\n%s", want, buf.String())
+	}
+}
+
+func TestRenderReport_HTML_NoDocURLLinkWhenEmpty(t *testing.T) {
+	rep := &findings.Report{
+		Version:   "v0.1.0",
+		ScannedAt: time.Date(2026, 5, 22, 0, 0, 0, 0, time.UTC),
+		Findings: []findings.Finding{
+			{
+				ID:       "cardinality/hot_label",
+				Severity: findings.SeverityCritical,
+				Category: findings.CategoryCardinality,
+				Title:    "http_requests_total: 250k series",
+				Evidence: findings.Evidence{Description: "user_id is unbounded"},
+			},
+		},
+		Summary: findings.Summary{BySeverity: map[string]int{"critical": 1}},
+	}
+	var buf bytes.Buffer
+	if err := html.New(&buf).RenderReport(rep); err != nil {
+		t.Fatalf("RenderReport: %v", err)
+	}
+	if strings.Contains(buf.String(), "finding-doc") {
+		t.Errorf("output should not contain 'finding-doc' link when DocURL is empty, got:\n%s", buf.String())
+	}
+}

@@ -70,6 +70,7 @@ func (a *Analyzer) Analyze(ctx context.Context, d analyzers.Deps) (analyzers.Res
 			ID:       fmt.Sprintf("card-%s-%s", m.Name, topLabel),
 			Severity: sev,
 			Category: findings.CategoryCardinality,
+			Class:    findings.ClassHotLabel,
 			Title:    fmt.Sprintf("high cardinality in %s due to label %q", m.Name, topLabel),
 			Metric:   m.Name,
 			Evidence: findings.Evidence{

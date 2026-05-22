@@ -164,7 +164,15 @@ func openOutput(cmd *cobra.Command, path string) (io.Writer, func() error, error
 	return f, f.Close, nil
 }
 
+// renderFormat dispatches a Report to the requested format.
+//
+// renderFormat populates Finding.DocURL from Finding.Class for every
+// finding in rep that has a Class but no caller-provided DocURL. The fill
+// happens here (after the caller has applied the ignore filter, before
+// any format-specific renderer touches the slice) so no analyzer has to
+// hard-code the docs domain.
 func renderFormat(w io.Writer, format string, rep *findings.Report, noColor bool) error {
+	findings.FillDocURLs(rep.Findings)
 	switch format {
 	case "", "terminal":
 		if err := writeTerminalWarnings(w, rep.Warnings, !noColor); err != nil {

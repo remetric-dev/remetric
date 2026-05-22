@@ -181,6 +181,9 @@ func TestAlertHygiene_NeverFired(t *testing.T) {
 	if f.Category != findings.CategoryAlertHygiene {
 		t.Errorf("Category = %v, want alert_hygiene", f.Category)
 	}
+	if got := f.Class; got != findings.ClassNeverFiringAlert {
+		t.Errorf("Class = %q, want %q", got, findings.ClassNeverFiringAlert)
+	}
 	if !strings.Contains(f.Title, "NoiseAlert") {
 		t.Errorf("Title = %q, want it to mention NoiseAlert", f.Title)
 	}
@@ -211,6 +214,9 @@ func TestAlertHygiene_AlwaysFiring(t *testing.T) {
 	}
 	if f.Severity != findings.SeverityCritical {
 		t.Errorf("Severity = %v, want Critical", f.Severity)
+	}
+	if got := f.Class; got != findings.ClassAlwaysFiringAlert {
+		t.Errorf("Class = %q, want %q", got, findings.ClassAlwaysFiringAlert)
 	}
 }
 

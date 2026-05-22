@@ -16,7 +16,14 @@ import (
 // renderFindings dispatches finding rendering based on cfg.Output.
 // Supported values: "terminal", "json". The ignored parameter is the
 // number of findings dropped by --ignore-* (0 if filter unused).
+//
+// renderFindings populates Finding.DocURL from Finding.Class for every
+// finding that has a Class but no caller-provided DocURL. The fill happens
+// here (after callers have applied the ignore filter, before any
+// format-specific renderer touches the slice) so no analyzer has to
+// hard-code the docs domain.
 func renderFindings(cfg *config.Config, w io.Writer, fs []findings.Finding, ignored int) error {
+	findings.FillDocURLs(fs)
 	switch cfg.Output {
 	case "", "terminal":
 		r := terminal.New(w, terminal.WithColor(!cfg.NoColor))
@@ -45,7 +52,14 @@ func validateOutput(s string) error {
 // renderReport dispatches Report rendering based on cfg.Output.
 // Terminal output prints any Warnings as a yellow banner above the
 // findings table. JSON emits the full §5.5 envelope.
+//
+// renderReport populates Finding.DocURL from Finding.Class for every
+// finding in rep that has a Class but no caller-provided DocURL. The fill
+// happens here (after the caller has applied the ignore filter, before
+// any format-specific renderer touches the slice) so no analyzer has to
+// hard-code the docs domain.
 func renderReport(cfg *config.Config, w io.Writer, rep *findings.Report) error {
+	findings.FillDocURLs(rep.Findings)
 	switch cfg.Output {
 	case "", "terminal":
 		if err := writeTerminalWarnings(w, rep.Warnings, !cfg.NoColor); err != nil {
