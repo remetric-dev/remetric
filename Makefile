@@ -34,8 +34,12 @@ vet: ## go vet all packages
 	$(GO) vet ./...
 
 lint: ## golangci-lint (local if installed, otherwise pinned docker image)
+	@# Clean the cache first: golangci-lint indexes by file path, so orphan
+	@# entries from removed worktrees can resurface as bogus errors after
+	@# the worktree is gone. Cheap to clean; expensive to debug.
 	@if command -v golangci-lint >/dev/null 2>&1; then \
 	  echo ">> using local golangci-lint ($$(golangci-lint version 2>/dev/null | head -n1))"; \
+	  golangci-lint cache clean >/dev/null 2>&1 || true; \
 	  golangci-lint run --timeout 5m; \
 	else \
 	  echo ">> golangci-lint not found locally, using docker $(GOLANGCI_IMAGE)"; \
