@@ -2,7 +2,7 @@
 // Copyright 2026 Andrei Taranik
 
 // Package ignore implements post-render filtering of findings by
-// regex patterns matched against structured fields (Metric, Label, Alert).
+// regex patterns matched against structured fields (Metric, Label, Alert, Dashboard).
 //
 // Patterns are anchored full-match: the user writes `foo_.*` and the
 // filter wraps it as `^(foo_.*)$`. Empty / whitespace-only patterns are
@@ -19,17 +19,19 @@ import (
 
 // Patterns groups raw regex strings by the field they match.
 type Patterns struct {
-	Metric []string
-	Label  []string
-	Alert  []string
+	Metric    []string
+	Label     []string
+	Alert     []string
+	Dashboard []string
 }
 
 // Filter applies compiled regex patterns to a slice of findings.
 // The zero value passes every finding through.
 type Filter struct {
-	metric []*regexp.Regexp
-	label  []*regexp.Regexp
-	alert  []*regexp.Regexp
+	metric    []*regexp.Regexp
+	label     []*regexp.Regexp
+	alert     []*regexp.Regexp
+	dashboard []*regexp.Regexp
 }
 
 // New compiles Patterns into a Filter. Returns an error on any
@@ -48,7 +50,11 @@ func New(p Patterns) (*Filter, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Filter{metric: mc, label: lc, alert: ac}, nil
+	dc, err := compile("dashboard", p.Dashboard)
+	if err != nil {
+		return nil, err
+	}
+	return &Filter{metric: mc, label: lc, alert: ac, dashboard: dc}, nil
 }
 
 func compile(kind string, raw []string) ([]*regexp.Regexp, error) {
@@ -71,7 +77,7 @@ func compile(kind string, raw []string) ([]*regexp.Regexp, error) {
 // is preserved among kept findings. When the filter has no patterns at
 // all, Apply returns the input slice unchanged (no allocation).
 func (f *Filter) Apply(in []findings.Finding) (kept []findings.Finding, ignored int) {
-	if f == nil || (len(f.metric) == 0 && len(f.label) == 0 && len(f.alert) == 0) {
+	if f == nil || (len(f.metric) == 0 && len(f.label) == 0 && len(f.alert) == 0 && len(f.dashboard) == 0) {
 		return in, 0
 	}
 	kept = make([]findings.Finding, 0, len(in))
@@ -86,8 +92,8 @@ func (f *Filter) Apply(in []findings.Finding) (kept []findings.Finding, ignored 
 }
 
 // drops reports whether any of the configured pattern lists matches one
-// of the structured fields of fnd. Order is metric -> label -> alert,
-// short-circuit on first match.
+// of the structured fields of fnd. Order is metric -> label -> alert ->
+// dashboard, short-circuit on first match.
 func (f *Filter) drops(fnd findings.Finding) bool {
 	if fnd.Metric != "" && matchAny(f.metric, fnd.Metric) {
 		return true
@@ -96,6 +102,9 @@ func (f *Filter) drops(fnd findings.Finding) bool {
 		return true
 	}
 	if fnd.Alert != "" && matchAny(f.alert, fnd.Alert) {
+		return true
+	}
+	if fnd.Dashboard != "" && matchAny(f.dashboard, fnd.Dashboard) {
 		return true
 	}
 	return false

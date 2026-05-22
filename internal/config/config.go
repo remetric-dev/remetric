@@ -40,9 +40,10 @@ type Config struct {
 // IgnoreConfig holds the raw regex patterns to drop findings whose
 // structured fields match. Parsed once in Validate.
 type IgnoreConfig struct {
-	Metric []string `mapstructure:"metric"`
-	Label  []string `mapstructure:"label"`
-	Alert  []string `mapstructure:"alert"`
+	Metric    []string `mapstructure:"metric"`
+	Label     []string `mapstructure:"label"`
+	Alert     []string `mapstructure:"alert"`
+	Dashboard []string `mapstructure:"dashboard"`
 }
 
 // PrometheusConfig holds Prometheus client options.
@@ -97,6 +98,7 @@ func BindFlags(fs *pflag.FlagSet) {
 	fs.StringArray("ignore-metric", nil, "Drop findings whose metric name matches this regex (repeatable). Anchored full-match.")
 	fs.StringArray("ignore-label", nil, "Drop findings whose evidence label matches this regex (repeatable). Anchored full-match.")
 	fs.StringArray("ignore-alert", nil, "Drop findings whose alert name matches this regex (repeatable). Anchored full-match.")
+	fs.StringArray("ignore-dashboard", nil, "Drop findings whose dashboard title matches this regex (repeatable). Anchored full-match.")
 	fs.BoolP("verbose", "v", false, "Verbose logging")
 	fs.Duration("timeout", 5*time.Minute, "Total operation timeout")
 	fs.String("config", "", "Path to config file")
@@ -138,6 +140,7 @@ func Load(fs *pflag.FlagSet, cfgPath string) (*Config, error) {
 		"ignore-metric":           "ignore.metric",
 		"ignore-label":            "ignore.label",
 		"ignore-alert":            "ignore.alert",
+		"ignore-dashboard":        "ignore.dashboard",
 		"verbose":                 "verbose",
 		"timeout":                 "timeout",
 	}
@@ -209,9 +212,10 @@ func (c *Config) Validate() error {
 	c.failOnSeverity = sev
 	c.failOnEnabled = enabled
 	filter, err := ignore.New(ignore.Patterns{
-		Metric: c.Ignore.Metric,
-		Label:  c.Ignore.Label,
-		Alert:  c.Ignore.Alert,
+		Metric:    c.Ignore.Metric,
+		Label:     c.Ignore.Label,
+		Alert:     c.Ignore.Alert,
+		Dashboard: c.Ignore.Dashboard,
 	})
 	if err != nil {
 		return fmt.Errorf("invalid --ignore-*: %w", err)

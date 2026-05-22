@@ -196,3 +196,36 @@ func TestFilter_Apply_PreservesOrder(t *testing.T) {
 		t.Errorf("kept order mismatch (-want +got):\n%s", diff)
 	}
 }
+
+func TestFilter_Apply_DashboardPatternDrops(t *testing.T) {
+	f, err := ignore.New(ignore.Patterns{Dashboard: []string{"Legacy .*"}})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	in := []findings.Finding{
+		{ID: "1", Dashboard: "Legacy Disk Stats"},
+		{ID: "2", Dashboard: "Current SLOs"},
+	}
+	kept, ignored := f.Apply(in)
+	if ignored != 1 {
+		t.Errorf("ignored = %d, want 1", ignored)
+	}
+	if len(kept) != 1 || kept[0].ID != "2" {
+		t.Errorf("kept = %+v, want [{ID:2 ...}]", kept)
+	}
+}
+
+func TestFilter_Apply_DashboardEmptyFieldNoMatch(t *testing.T) {
+	f, err := ignore.New(ignore.Patterns{Dashboard: []string{".*"}})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	in := []findings.Finding{{ID: "1", Dashboard: ""}, {ID: "2", Metric: "m"}}
+	kept, ignored := f.Apply(in)
+	if ignored != 0 {
+		t.Errorf("ignored = %d, want 0 (empty Dashboard must not match)", ignored)
+	}
+	if len(kept) != 2 {
+		t.Errorf("kept len = %d, want 2", len(kept))
+	}
+}
