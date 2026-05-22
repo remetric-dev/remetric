@@ -52,7 +52,14 @@ func validateOutput(s string) error {
 // renderReport dispatches Report rendering based on cfg.Output.
 // Terminal output prints any Warnings as a yellow banner above the
 // findings table. JSON emits the full §5.5 envelope.
+//
+// renderReport populates Finding.DocURL from Finding.Class for every
+// finding in rep that has a Class but no caller-provided DocURL. The fill
+// happens here (after the caller has applied the ignore filter, before
+// any format-specific renderer touches the slice) so no analyzer has to
+// hard-code the docs domain.
 func renderReport(cfg *config.Config, w io.Writer, rep *findings.Report) error {
+	findings.FillDocURLs(rep.Findings)
 	switch cfg.Output {
 	case "", "terminal":
 		if err := writeTerminalWarnings(w, rep.Warnings, !cfg.NoColor); err != nil {
