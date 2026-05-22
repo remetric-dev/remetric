@@ -85,6 +85,25 @@ docker_manifests:
       - "ghcr.io/remetric-dev/remetric:latest-amd64"
       - "ghcr.io/remetric-dev/remetric:latest-arm64"
 
+homebrew_casks:
+  - name: remetric
+    repository:
+      owner: remetric-dev
+      name: homebrew-tap
+      branch: main
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    directory: Casks
+    homepage: "https://remetric.dev"
+    description: "Re-metric your stack - find waste in Prometheus, Grafana & Loki"
+    binary: "remetric"
+    commit_author:
+      name: "remetric-dev-bot"
+      email: "noreply@remetric.dev"
+    # Publish on every tag, including pre-releases (v0.1.0-rc.N), so we can
+    # validate the tap end-to-end before v0.1.0. Switch to `auto` post-v0.1
+    # if you want to stop polluting the tap with alphas.
+    skip_upload: "false"
+
 release:
   prerelease: auto
   draft: false

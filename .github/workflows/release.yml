@@ -33,3 +33,8 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # PAT with `contents: write` on remetric-dev/homebrew-tap.
+          # Required for goreleaser to push the brew formula on every tag.
+          # If the secret is missing the release job fails fast with a
+          # clear "missing env" error before any artifacts are uploaded.
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}

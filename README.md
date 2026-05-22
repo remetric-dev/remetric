@@ -28,6 +28,22 @@ Installs the latest release into `$HOME/.local/bin`. Override with
 `REMETRIC_INSTALL_DIR=/usr/local/bin sh install.sh` (may need `sudo`) or pin a
 specific version via `REMETRIC_VERSION=v0.1.0 sh install.sh`.
 
+### Homebrew (macOS / Linux)
+
+```bash
+brew install remetric-dev/tap/remetric
+```
+
+Or, two-line for shorter subsequent invocations:
+
+```bash
+brew tap remetric-dev/tap
+brew install remetric
+```
+
+The formula is auto-published on each release from
+[`remetric-dev/homebrew-tap`](https://github.com/remetric-dev/homebrew-tap).
+
 ### Docker
 
 Multi-arch image (`linux/amd64`, `linux/arm64`).
@@ -263,9 +279,8 @@ class with detection rules, fix snippets, and false-positive notes.
 ## What's still missing in v0.1
 
 - No dashboard sprawl analyzer.
-- No Homebrew tap (binaries + Docker image already ship; see Install above).
 
-These land in subsequent releases.
+This lands in a subsequent release.
 
 ## CI integration
 
