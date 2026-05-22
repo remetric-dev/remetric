@@ -70,13 +70,14 @@ func (r *lineReporter) Start(name string) {
 func (r *lineReporter) Done(name string, dur time.Duration, warnings int) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	rounded := dur.Round(time.Millisecond)
 	if warnings == 0 {
-		_, _ = fmt.Fprintf(r.w, "done (%s)\n", dur)
+		_, _ = fmt.Fprintf(r.w, "done (%s)\n", rounded)
 		return
 	}
 	word := "warnings"
 	if warnings == 1 {
 		word = "warning"
 	}
-	_, _ = fmt.Fprintf(r.w, "done (%s, %d %s)\n", dur, warnings, word)
+	_, _ = fmt.Fprintf(r.w, "done (%s, %d %s)\n", rounded, warnings, word)
 }

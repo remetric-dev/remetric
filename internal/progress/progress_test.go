@@ -55,6 +55,29 @@ func TestLineReporter_DonePluralWarnings(t *testing.T) {
 	}
 }
 
+func TestLineReporter_DoneRoundsDurationToMillisecond(t *testing.T) {
+	tests := []struct {
+		name string
+		dur  time.Duration
+		want string
+	}{
+		{"sub-ms truncated", 103*time.Millisecond + 624*time.Microsecond + 458*time.Nanosecond, "done (104ms)\n"},
+		{"tiny duration", 1*time.Millisecond + 811*time.Microsecond, "done (2ms)\n"},
+		{"super-second", 2*time.Second + 103*time.Millisecond + 87*time.Microsecond, "done (2.103s)\n"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			r := newWithTTY(&buf, false, true)
+			r.Start("phase")
+			r.Done("phase", tc.dur, 0)
+			if got := buf.String(); !strings.Contains(got, tc.want) {
+				t.Errorf("buf = %q, want substring %q", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestLineReporter_NoProgressOverridesTTY(t *testing.T) {
 	var buf bytes.Buffer
 	r := newWithTTY(&buf, true, true) // noProgress=true wins
