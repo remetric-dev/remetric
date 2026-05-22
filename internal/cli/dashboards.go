@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sort"
 
 	"github.com/spf13/cobra"
 
@@ -109,20 +108,8 @@ Requires both --prometheus and --grafana.`,
 			if len(filtered) == 0 {
 				return renderEmpty(cfg, cmd.OutOrStdout(), brokenPanelCopy, minSev, len(all), tallyBySeverity(all), ignored)
 			}
-			sort.SliceStable(filtered, func(i, j int) bool {
-				if filtered[i].Severity != filtered[j].Severity {
-					return filtered[i].Severity > filtered[j].Severity
-				}
-				if filtered[i].Dashboard != filtered[j].Dashboard {
-					return filtered[i].Dashboard < filtered[j].Dashboard
-				}
-				return filtered[i].Metric < filtered[j].Metric
-			})
 			if limit >= 0 && len(filtered) > limit {
 				filtered = filtered[:limit]
-			}
-			if len(filtered) == 0 {
-				return renderEmpty(cfg, cmd.OutOrStdout(), brokenPanelCopy, minSev, 0, nil, ignored)
 			}
 			if err := renderFindings(cfg, cmd.OutOrStdout(), filtered, ignored); err != nil {
 				return err
@@ -137,9 +124,4 @@ Requires both --prometheus and --grafana.`,
 	cmd.Flags().IntVar(&limit, "limit", 20, "Maximum findings to print (0 = none)")
 	cmd.Flags().StringVar(&minSeverity, "min-severity", "medium", "Minimum severity to print: low|medium|high|critical")
 	return cmd
-}
-
-var brokenPanelCopy = emptyCopy{
-	NoResults: "No broken panels found - every dashboard panel query resolves to a metric that exists in Prometheus head series or as a recording-rule output.",
-	Subject:   "broken panels",
 }

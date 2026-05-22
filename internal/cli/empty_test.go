@@ -81,6 +81,18 @@ func TestEmptyCopy_Values(t *testing.T) {
 	if labelPatternCopy.NoResults == "" {
 		t.Error("labelPatternCopy.NoResults is empty")
 	}
+	if unusedMetricsCopy.Subject == "" {
+		t.Error("unusedMetricsCopy.Subject is empty")
+	}
+	if unusedMetricsCopy.NoResults == "" {
+		t.Error("unusedMetricsCopy.NoResults is empty")
+	}
+	if brokenPanelCopy.Subject == "" {
+		t.Error("brokenPanelCopy.Subject is empty")
+	}
+	if brokenPanelCopy.NoResults == "" {
+		t.Error("brokenPanelCopy.NoResults is empty")
+	}
 }
 
 func TestRenderEmpty_Terminal_NoResults(t *testing.T) {
