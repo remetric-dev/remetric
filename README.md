@@ -6,10 +6,9 @@ Re-metric your stack — find waste in Prometheus, Grafana & Loki.
 Prometheus server and it prints a ranked, actionable list of cardinality
 problems with suggested `metric_relabel_configs` fixes.
 
-> Status: **alpha (Phase 4 of v0.1)** — cardinality, label-pattern,
-> unused-metric, and alert-hygiene analyzers are wired up. JSON output +
-> Grafana integration + unified `remetric scan` command + HTML/Markdown
-> reporting shipped.
+> Status: **alpha** — cardinality, label-pattern, unused-metric, and
+> alert-hygiene analyzers are wired up. JSON output, Grafana integration,
+> unified `remetric scan`, and HTML/Markdown reports shipped.
 
 ## Install
 
@@ -73,7 +72,7 @@ sleep 10
 make e2e-down
 ```
 
-## Label-pattern analysis (Phase 2)
+## Label-pattern analysis
 
 Find labels whose names look like unbounded identifiers (`user_id`, `trace_id`,
 `path`, …) and rank them by uniqueness:
@@ -94,7 +93,7 @@ remetric cardinality labels \
 
 Both commands accept `--output json` for machine-readable output.
 
-## Unused-metric detection (Phase 3)
+## Unused-metric detection
 
 Diff ingested metrics against everything Grafana, alert rules, and recording
 rules actually reference. Anything left over is a candidate to drop.
@@ -159,7 +158,7 @@ exist for split-credential setups; if omitted, vmalert inherits auth from
 - Cortex/Mimir-style multi-tenancy headers (`X-Scope-OrgID`) are not
   supported; URL-prefix-based tenant routing through `vmauth` works.
 
-## Alert hygiene + reports (Phase 4)
+## Alert hygiene + reports
 
 remetric inspects the `ALERTS` series via `query_range` to flag alerts that
 either never fire or fire continuously (broken thresholds, alert noise).
@@ -234,10 +233,10 @@ Global flags (subset; see `--help` for the full list):
 
 ## What's still missing in v0.1
 
-- No dashboard sprawl analyzer — Phase 5.
+- No dashboard sprawl analyzer.
 - No Homebrew tap (binaries + Docker image already ship; see Install above).
 
-These land in subsequent phases.
+These land in subsequent releases.
 
 ## CI integration
 
