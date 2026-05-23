@@ -45,7 +45,8 @@ func (r *Renderer) RenderFindingsWithIgnored(fs []findings.Finding, ignored int)
 	return r.encode(envelope)
 }
 
-// RenderReport emits the full §5.5 schema.
+// RenderReport emits the full Report envelope (target, overview,
+// findings, warnings, ignored_count, scanned_at).
 func (r *Renderer) RenderReport(rep *findings.Report) error {
 	if rep == nil {
 		return fmt.Errorf("output/json: nil report")

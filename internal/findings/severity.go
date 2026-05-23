@@ -57,8 +57,8 @@ func ParseSeverity(s string) (Severity, error) {
 	return 0, fmt.Errorf("unknown severity %q", s)
 }
 
-// MarshalJSON encodes the severity as a lower-case string,
-// matching the JSON schema in the spec (§5.5).
+// MarshalJSON encodes the severity as a lower-case string
+// (critical|high|medium|low) for the public JSON wire form.
 func (s Severity) MarshalJSON() ([]byte, error) {
 	return json.Marshal(s.lower())
 }

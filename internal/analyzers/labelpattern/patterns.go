@@ -7,8 +7,8 @@ package labelpattern
 
 import "regexp"
 
-// defaultPatternSources are the verbatim regex patterns from the spec
-// (§6.3). Compiled lazily via DefaultPatterns.
+// defaultPatternSources are the high-cardinality label-name patterns
+// the analyzer flags by default. Compiled lazily via DefaultPatterns.
 var defaultPatternSources = []string{
 	`(?i).*(uuid|guid).*`,
 	`(?i).*_id$`,
