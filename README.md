@@ -1,5 +1,11 @@
 # remetric
 
+[![CI](https://github.com/remetric-dev/remetric/actions/workflows/ci.yml/badge.svg)](https://github.com/remetric-dev/remetric/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/remetric-dev/remetric)](https://github.com/remetric-dev/remetric/releases/latest)
+[![Go Report Card](https://goreportcard.com/badge/github.com/remetric-dev/remetric)](https://goreportcard.com/report/github.com/remetric-dev/remetric)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/remetric-dev/remetric)](go.mod)
+[![License](https://img.shields.io/github/license/remetric-dev/remetric)](LICENSE)
+
 Re-metric your stack - find waste in Prometheus, Grafana & Loki.
 
 `remetric` is a read-only doctor for self-hosted Prometheus stacks. Point it at a
