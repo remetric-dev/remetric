@@ -7,7 +7,10 @@
 // by substituting them with a sentinel identifier before parsing.
 package promqlx
 
-import "regexp"
+import (
+	"regexp"
+	"strings"
+)
 
 // sentinel replaces Grafana template variables that would otherwise
 // break PromQL parsing. The string is a valid PromQL identifier
@@ -29,8 +32,16 @@ func sanitiseGrafanaVars(expr string) string {
 	return grafanaVarPattern.ReplaceAllString(expr, sentinel)
 }
 
-// isSentinel reports whether name is the sentinel identifier used
-// to stand in for Grafana template variables.
+// isSentinel reports whether name is, or was derived from, the
+// sentinel identifier used to stand in for Grafana template variables.
+//
+// A substring (not equality) check is required because Grafana panels
+// often concatenate template variables with literal text, e.g.
+// "${metric}_total" or "foo_${suffix}". After sanitisation these
+// become "__remetric_var___total" / "foo___remetric_var__", which are
+// valid PromQL identifiers and parse cleanly. Any name containing the
+// sentinel is therefore a sanitiser artifact, not a real metric, and
+// must be filtered out of the extracted set.
 func isSentinel(name string) bool {
-	return name == sentinel
+	return strings.Contains(name, sentinel)
 }

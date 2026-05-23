@@ -80,7 +80,7 @@ func TestDocURL(t *testing.T) {
 		{"never-firing-alert", findings.ClassNeverFiringAlert, "https://remetric.dev/findings/never-firing-alert"},
 		{"always-firing-alert", findings.ClassAlwaysFiringAlert, "https://remetric.dev/findings/always-firing-alert"},
 		{"label-pattern-overly-granular", findings.ClassLabelPatternOverlyGranular, "https://remetric.dev/findings/label-pattern-overly-granular"},
-		{"dashboard-sprawl", findings.ClassDashboardSprawl, "https://remetric.dev/findings/dashboard-sprawl"},
+		{"broken-panel", findings.ClassBrokenPanel, "https://remetric.dev/findings/broken-panel"},
 		{"empty class returns empty URL", "", ""},
 	}
 	for _, tt := range tests {

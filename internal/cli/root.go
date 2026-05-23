@@ -133,6 +133,7 @@ Supported Prometheus versions: 2.30 and newer.`,
 	cmd.AddCommand(newCardinalityCmd())
 	cmd.AddCommand(newMetricsCmd())
 	cmd.AddCommand(newAlertsCmd())
+	cmd.AddCommand(newDashboardsCmd())
 	cmd.AddCommand(newScanCmd())
 	cmd.AddCommand(newReportCmd())
 	return cmd

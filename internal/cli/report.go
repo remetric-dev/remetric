@@ -17,6 +17,7 @@ import (
 	"github.com/remetric-dev/remetric/internal/analyzers"
 	"github.com/remetric-dev/remetric/internal/analyzers/alerthygiene"
 	"github.com/remetric-dev/remetric/internal/analyzers/cardinality"
+	"github.com/remetric-dev/remetric/internal/analyzers/dashboardhygiene"
 	"github.com/remetric-dev/remetric/internal/analyzers/labelpattern"
 	"github.com/remetric-dev/remetric/internal/analyzers/unusedmetrics"
 	"github.com/remetric-dev/remetric/internal/findings"
@@ -39,9 +40,11 @@ func newReportCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "report",
 		Short: "Run all analyzers and emit a report in the chosen format.",
-		Long: `Runs cardinality, label patterns, unused metrics, and alert hygiene,
-then renders the unified report to stdout or a file in terminal, JSON,
-HTML, or Markdown format.
+		Long: `Runs cardinality, label patterns, unused metrics, alert hygiene,
+and dashboard hygiene (broken panels), then renders the unified report
+to stdout or a file in terminal, JSON, HTML, or Markdown format.
+unused-metrics and dashboard-hygiene need --grafana to fully populate
+their signal; without it they emit a warning and skip the dashboard walk.
 
 The global --output flag is ignored by this subcommand; use --format
 instead. Use --out FILE to write to a file (or '-' for stdout).`,
@@ -96,6 +99,7 @@ instead. Use --out FILE to write to a file (or '-' for stdout).`,
 				labelpattern.New(),
 				unusedmetrics.New(),
 				alerthygiene.New(alerthygiene.Config{Lookback: lookback, Step: step}),
+				dashboardhygiene.New(),
 			}
 			var (
 				all      []findings.Finding

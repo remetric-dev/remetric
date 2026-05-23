@@ -121,6 +121,16 @@ func (c *Client) do(ctx context.Context, method, pathAndQuery string, body io.Re
 	return buf, nil
 }
 
+// BaseURL returns a defensive copy of the configured base URL.
+// Mutating the returned value does not affect future requests.
+func (c *Client) BaseURL() *url.URL {
+	if c.baseURL == nil {
+		return nil
+	}
+	cp := *c.baseURL
+	return &cp
+}
+
 // singleJoin joins URL path segments without collapsing slashes
 // across two non-empty path components.
 func singleJoin(a, b string) string {

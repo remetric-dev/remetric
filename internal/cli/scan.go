@@ -15,6 +15,7 @@ import (
 	"github.com/remetric-dev/remetric/internal/analyzers"
 	"github.com/remetric-dev/remetric/internal/analyzers/alerthygiene"
 	"github.com/remetric-dev/remetric/internal/analyzers/cardinality"
+	"github.com/remetric-dev/remetric/internal/analyzers/dashboardhygiene"
 	"github.com/remetric-dev/remetric/internal/analyzers/labelpattern"
 	"github.com/remetric-dev/remetric/internal/analyzers/unusedmetrics"
 	"github.com/remetric-dev/remetric/internal/config"
@@ -28,9 +29,12 @@ func newScanCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "scan",
 		Short: "Run every available analyzer and emit a unified report.",
-		Long: `Orchestrates cardinality, label-pattern, alert-hygiene, and
-(if --grafana is set) unused-metrics analyzers. Findings are merged
-into a single findings.Report shape - see the JSON schema in the spec.`,
+		Long: `Orchestrates the cardinality, label-pattern, alert-hygiene,
+unused-metrics, and dashboard-hygiene (broken panels) analyzers.
+unused-metrics and dashboard-hygiene need --grafana to fully
+populate their signal; without it they emit a warning and skip the
+dashboard walk. Findings are merged into a single findings.Report
+shape - see the JSON schema in the spec.`,
 		Example: `  # Full scan with Grafana
   remetric scan --prometheus http://localhost:9090 --grafana http://localhost:3000
 
@@ -85,6 +89,7 @@ into a single findings.Report shape - see the JSON schema in the spec.`,
 				labelpattern.New(),
 				unusedmetrics.New(),
 				alerthygiene.New(alerthygiene.Config{}),
+				dashboardhygiene.New(),
 			}
 			prog := progress.New(cmd.ErrOrStderr(), cfg.NoProgress)
 			for _, a := range runners {

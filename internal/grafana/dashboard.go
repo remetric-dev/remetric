@@ -18,6 +18,7 @@ type Dashboard struct {
 }
 
 type panel struct {
+	Title   string   `json:"title"`
 	Type    string   `json:"type"`
 	Panels  []panel  `json:"panels,omitempty"`
 	Targets []target `json:"targets,omitempty"`
@@ -90,6 +91,42 @@ func collectPanelQueries(panels []panel, out *[]string) {
 				continue
 			}
 			*out = append(*out, t.Expr)
+		}
+	}
+}
+
+// PanelTarget is a flat (panel-title, expr) pair for analyzers that
+// care about who-references-what. Skips non-Prometheus targets and
+// empty expressions.
+type PanelTarget struct {
+	PanelTitle string
+	Expr       string
+}
+
+// PanelTargets returns every Prometheus target across all panels,
+// recursing through rows. Panel titles fall back to "<untitled panel>"
+// when the title field is empty.
+func (d *Dashboard) PanelTargets() []PanelTarget {
+	var out []PanelTarget
+	collectPanelTargets(d.Panels, &out)
+	return out
+}
+
+func collectPanelTargets(panels []panel, out *[]PanelTarget) {
+	for _, p := range panels {
+		collectPanelTargets(p.Panels, out)
+		title := p.Title
+		if title == "" {
+			title = "<untitled panel>"
+		}
+		for _, t := range p.Targets {
+			if t.Datasource.Type != "" && t.Datasource.Type != "prometheus" {
+				continue
+			}
+			if t.Expr == "" {
+				continue
+			}
+			*out = append(*out, PanelTarget{PanelTitle: title, Expr: t.Expr})
 		}
 	}
 }

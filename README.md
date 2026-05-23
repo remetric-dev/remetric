@@ -6,9 +6,10 @@ Re-metric your stack - find waste in Prometheus, Grafana & Loki.
 Prometheus server and it prints a ranked, actionable list of cardinality
 problems with suggested `metric_relabel_configs` fixes.
 
-> Status: **alpha** - cardinality, label-pattern, unused-metric, and
-> alert-hygiene analyzers are wired up. JSON output, Grafana integration,
-> unified `remetric scan`, and HTML/Markdown reports shipped.
+> Status: **alpha** - cardinality, label-pattern, unused-metric,
+> alert-hygiene, and dashboard-hygiene (broken-panel) analyzers are
+> wired up. JSON output, Grafana integration, unified `remetric scan`,
+> and HTML/Markdown reports shipped.
 
 ![remetric demo](demo/remetric.gif)
 
@@ -248,6 +249,7 @@ flag is ignored by `report` - use `--format` instead.
 | `remetric metrics unused`          | Ingested ∖ used metrics (needs Grafana for dashboard coverage)|
 | `remetric alerts unused`           | Alerts that never fired in the lookback window              |
 | `remetric alerts always-firing`    | Alerts firing >=95% of the lookback window                  |
+| `remetric dashboards broken`       | Flag dashboards whose panels reference missing metrics      |
 | `remetric report`                  | Run every analyzer, render terminal/json/html/markdown      |
 | `remetric scan`                    | Run every available analyzer, emit a unified Report         |
 
@@ -276,12 +278,6 @@ Global flags (subset; see `--help` for the full list):
 Full reference at [remetric.dev](https://remetric.dev/) - one page per finding
 class with detection rules, fix snippets, and false-positive notes.
 
-## What's still missing in v0.1
-
-- No dashboard sprawl analyzer.
-
-This lands in a subsequent release.
-
 ## CI integration
 
 Pair any analyzer command with `--fail-on=critical` to fail the build when a
@@ -308,13 +304,14 @@ Suppress findings that are known noise or out of scope. Patterns are
 **anchored full-match** regexes: `foo_.*` matches `foo_bar` but not
 `xfoo_bar`. Empty / whitespace-only patterns are silently ignored.
 
-Three target fields, each with its own flag (repeatable):
+Four target fields, each with its own flag (repeatable):
 
 | Flag | Drops findings whose ... |
 |------|--------------------------|
-| `--ignore-metric REGEX` | metric name matches |
-| `--ignore-label REGEX`  | evidence label matches |
-| `--ignore-alert REGEX`  | alert name matches |
+| `--ignore-metric REGEX`    | metric name matches |
+| `--ignore-label REGEX`     | evidence label matches |
+| `--ignore-alert REGEX`     | alert name matches |
+| `--ignore-dashboard REGEX` | dashboard title matches |
 
 ```bash
 # Repeatable flag

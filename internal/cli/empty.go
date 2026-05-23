@@ -36,6 +36,10 @@ var (
 		NoResults: "No unused metrics found - every ingested metric is referenced by a dashboard, alert, or recording rule.",
 		Subject:   "unused metrics",
 	}
+	brokenPanelCopy = emptyCopy{
+		NoResults: "No broken panels found - every dashboard panel query resolves to a metric that exists in Prometheus head series or as a recording-rule output.",
+		Subject:   "broken panels",
+	}
 )
 
 // tallyBySeverity counts findings per severity tier.
