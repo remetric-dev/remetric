@@ -29,9 +29,12 @@ func newScanCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "scan",
 		Short: "Run every available analyzer and emit a unified report.",
-		Long: `Orchestrates cardinality, label-pattern, alert-hygiene, and
-(if --grafana is set) unused-metrics analyzers. Findings are merged
-into a single findings.Report shape - see the JSON schema in the spec.`,
+		Long: `Orchestrates the cardinality, label-pattern, alert-hygiene,
+unused-metrics, and dashboard-hygiene (broken panels) analyzers.
+unused-metrics and dashboard-hygiene need --grafana to fully
+populate their signal; without it they emit a warning and skip the
+dashboard walk. Findings are merged into a single findings.Report
+shape - see the JSON schema in the spec.`,
 		Example: `  # Full scan with Grafana
   remetric scan --prometheus http://localhost:9090 --grafana http://localhost:3000
 
