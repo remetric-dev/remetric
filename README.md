@@ -276,12 +276,6 @@ Global flags (subset; see `--help` for the full list):
 Full reference at [remetric.dev](https://remetric.dev/) - one page per finding
 class with detection rules, fix snippets, and false-positive notes.
 
-## What's still missing in v0.1
-
-- No dashboard sprawl analyzer.
-
-This lands in a subsequent release.
-
 ## CI integration
 
 Pair any analyzer command with `--fail-on=critical` to fail the build when a

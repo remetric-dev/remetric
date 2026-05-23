@@ -37,7 +37,7 @@ nav:
     - Label pattern overly granular: findings/label-pattern-overly-granular.md
     - Never-firing alert: findings/never-firing-alert.md
     - Always-firing alert: findings/always-firing-alert.md
-    - Dashboard sprawl (coming soon): findings/dashboard-sprawl.md
+    - Broken panel: findings/broken-panel.md
 
 markdown_extensions:
   - admonition

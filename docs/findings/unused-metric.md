@@ -89,5 +89,5 @@ Suppress via `--ignore-metric <regex>`. See the
 
 - [Hot label](hot-label.md) - if the metric is heavily used but bloated by one
   label, fix the label rather than dropping the metric.
-- [Dashboard sprawl](dashboard-sprawl.md) - if the metric is referenced only by
-  dashboards nobody looks at, its "used" status may itself be a lie.
+- [Broken panel](broken-panel.md) - the inverse case: a dashboard panel
+  references a metric that no longer exists in Prometheus.
