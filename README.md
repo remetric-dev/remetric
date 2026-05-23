@@ -156,8 +156,8 @@ remetric scan \
   --grafana http://localhost:3000
 ```
 
-`scan` emits a `findings.Report` (see spec §5.5) - combine with `--output json`
-for CI.
+`scan` emits a `findings.Report` envelope (target, overview, findings,
+warnings) - combine with `--output json` for CI.
 
 ## VictoriaMetrics support
 

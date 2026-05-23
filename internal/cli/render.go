@@ -51,7 +51,7 @@ func validateOutput(s string) error {
 
 // renderReport dispatches Report rendering based on cfg.Output.
 // Terminal output prints any Warnings as a yellow banner above the
-// findings table. JSON emits the full §5.5 envelope.
+// findings table. JSON emits the full Report envelope.
 //
 // renderReport populates Finding.DocURL from Finding.Class for every
 // finding in rep that has a Class but no caller-provided DocURL. The fill
