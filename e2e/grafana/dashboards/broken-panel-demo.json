@@ -1,0 +1,17 @@
+{
+  "uid": "broken-panel-demo",
+  "title": "Broken Panel Demo",
+  "schemaVersion": 36,
+  "version": 1,
+  "panels": [
+    {
+      "id": 1,
+      "type": "graph",
+      "title": "Bogus Metric",
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "targets": [
+        {"expr": "nonexistent_broken_panel_demo_xyz_total", "refId": "A"}
+      ]
+    }
+  ]
+}
