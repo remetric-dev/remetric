@@ -108,10 +108,11 @@ homebrew_casks:
           if OS.mac?
             system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/remetric"]
           end
-    # Publish on every tag, including pre-releases (v0.1.0-rc.N), so we can
-    # validate the tap end-to-end before v0.1.0. Switch to `auto` post-v0.1
-    # if you want to stop polluting the tap with alphas.
-    skip_upload: "false"
+    # Publish stable tags (v0.1.0, v0.1.1, v1.0, ...) but skip
+    # pre-releases (v0.X.Y-rc.N, -beta.N, -alpha.N). This keeps the
+    # tap pointing at the latest stable so brew users don't get
+    # bumped onto an RC mid-cycle.
+    skip_upload: "auto"
 
 release:
   prerelease: auto
